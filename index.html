@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>মাটির স্বাস্থ্য সুরক্ষা কার্ড - মোবাইল অ্যাপ</title>
+
+    <!-- PWA Web App Manifest & Theme Color -->
+    <link rel="manifest" href="data:application/manifest+json;base64,ewogICJzaG9ydF9uYW1lIjogIuCmrOCmvuCmn-Cmv-CmsCDgprLgp43gpqDgpr7gprjgp43gpqXgp4kiLAogICJuYW1lIjogIuCmrOCmvuCmn-Cmv-CmsCDgprLgp43gpqDgpr7gprjgp43gpqXgp4sg4Ka44KeB4Kaw4KaP4KaV4KeN4Ka34Ka24KaBiological4KeN4Kaa4KaP4Kaw4KeN4KamIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiaHR0cHM6Ly91cGxvYWQud2lraW1lZGlhLm9yZy93aWtpcGVkaWEvY29tbW9ucy9lL2UwL0RBRV9Mb2dvLnBuZyIsCiAgICAgICJzaXplcyI6ICIxOTJ4MTkyIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIiwKICAgICAgInB1cnBvc2UiOiAiYW55IG1hc2thYmxlIgogICAgfSwKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL3VwbG9hZC53aWtpbWVkaWEub3JnL3dpa2lwZWRpYS9jb21tb25zL2UvZTAvREFFX0xvZ28ucG5nIiwKICAgICAgInNpemVzIjogIjUxMng1MTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciLAogICAgICAicHVycG9zZSI6ICJhbnkgbWFza2FibGUiCiAgICB9CiAgXSwKICAic3RhcnRfdXJsIjogIi4vIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjMWI1ZTIwIiwKICAidGhlbWVfY29sb3IiOiAiIzFiNWUyMCIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgIm9yaWVudGF0aW9uIjogInBvcnRyYWl0Igp9">
+    <meta name="theme-color" content="#1b5e20">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="মাটির স্বাস্থ্য">
+
     <!-- SheetJS Library -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Google Fonts -->
@@ -381,7 +389,6 @@
             <span class="toolbar-title">তথ্য অনুসন্ধান</span>
             <div class="upload-btn-wrapper">
                 <button class="btn-upload">📁 Excel আপলোড</button>
-                <!-- একাধিক ফাইল আপলোডের জন্য multiple অ্যাট্রিবিউট যোগ করা হয়েছে -->
                 <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" multiple onchange="handleFileUpload(event)" />
             </div>
         </div>
@@ -448,14 +455,13 @@
         const files = event.target.files;
         if (!files || files.length === 0) return;
 
-        rawSheetData = []; // নতুন আপলোডের সময় আগের ডাটা ক্লিয়ার করা
+        rawSheetData = [];
 
         for (let f = 0; f < files.length; f++) {
             const file = files[f];
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data, { type: 'array' });
 
-            // ফাইলের প্রতিটি শিট প্রসেস করা
             workbook.SheetNames.forEach(sheetName => {
                 const sheet = workbook.Sheets[sheetName];
                 const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
@@ -463,7 +469,6 @@
                 let extractedBlockName = "";
                 let headerIndex = -1;
 
-                // হেডার এবং ব্লক এর নাম খোঁজা
                 for (let i = 0; i < Math.min(rows.length, 10); i++) {
                     if (rows[i]) {
                         rows[i].forEach(cell => {
@@ -603,6 +608,26 @@
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Farmer_Data");
         XLSX.writeFile(workbook, "Combined_Soil_Health_Card_Data.xlsx");
+    }
+
+    // ৬. সার্ভিস ওয়ার্কার রেজিস্টার (PWA support)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            const swCode = `
+                self.addEventListener('install', (e) => {
+                    e.waitUntil(self.skipWaiting());
+                });
+                self.addEventListener('activate', (e) => {
+                    e.waitUntil(self.clients.claim());
+                });
+                self.addEventListener('fetch', (e) => {
+                    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+                });
+            `;
+            const blob = new Blob([swCode], { type: 'text/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl).catch(err => console.log(err));
+        });
     }
 </script>
 
