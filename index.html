@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>মাটির স্বাস্থ্য সুরক্ষা কার্ড - মোবাইল অ্যাপ</title>
+    <!-- SheetJS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-green: #1b5e20;
+            --primary-light: #2e7d32;
+            --accent-blue: #1976d2;
+            --danger-red: #d32f2f;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Hind Siliguri', sans-serif;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        /* মোবাইল স্ক্রিন ফ্রেম */
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            height: 100vh;
+            max-height: 920px;
+            background: var(--card-bg);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @media (min-width: 480px) {
+            .app-container {
+                height: 92vh;
+                border-radius: 24px;
+                border: 4px solid #333;
+            }
+        }
+
+        /* মাঝখানে জলছাপ (Watermark) */
+        .app-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 260px;
+            height: 260px;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/e0/DAE_Logo.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            opacity: 0.12;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* অ্যাপ হেডার */
+        .app-header {
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-light));
+            color: white;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .header-logo {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: white;
+            padding: 2px;
+            object-fit: contain;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .header-titles {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+        }
+
+        .header-titles h1 {
+            font-size: 17px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .header-titles span {
+            font-size: 11px;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        /* কন্টেন্ট স্ক্রোল এলাকা */
+        .app-body {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* টুলবার */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            background: rgba(245, 247, 250, 0.9);
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .toolbar-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .btn-upload {
+            background-color: var(--primary-green);
+            color: white;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(27, 94, 32, 0.3);
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* সার্চ বক্স */
+        .search-card {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        }
+
+        .search-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 8px;
+        }
+
+        .search-box-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 15px;
+            outline: none;
+            background: #fff;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary-green);
+        }
+
+        .btn-search {
+            background-color: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(27, 94, 32, 0.2);
+        }
+
+        /* ডুপ্লিকেট অ্যালার্ট মেসেজ */
+        .duplicate-alert {
+            display: none;
+            background-color: #ffebee;
+            color: var(--danger-red);
+            border: 1px solid #ffcdd2;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .no-data {
+            color: var(--danger-red);
+            text-align: center;
+            display: none;
+            margin-top: 10px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        /* সার্চ রেজাল্ট কার্ড */
+        .result-card {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #d1d5db;
+            margin-bottom: 12px;
+        }
+
+        .user-img {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary-green);
+        }
+
+        .grid-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .info-item {
+            background: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #f3f4f6;
+        }
+
+        .info-item span {
+            display: block;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .info-item strong {
+            font-size: 13px;
+            color: #1f2937;
+        }
+
+        /* কার্ড নেভিগেশন (একাধিক কার্ডের ক্ষেত্রে) */
+        .card-pagination {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .btn-page {
+            background: #e0e0e0;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-page:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .page-indicator {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--danger-red);
+        }
+
+        /* ফুটারে ডাউনলোড বাটন */
+        .app-footer {
+            padding: 14px 16px;
+            background: #ffffff;
+            border-top: 1px solid #f3f4f6;
+            position: relative;
+            z-index: 2;
+        }
+
+        .btn-download {
+            width: 100%;
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- মাঝখানে কৃষি সম্প্রসারণ অধিদপ্তরের জলছাপ -->
+    <div class="app-watermark"></div>
+
+    <!-- অ্যাপ হেডার (লোগো সহ) -->
+    <div class="app-header">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/DAE_Logo.png" alt="কৃষি সম্প্রসারণ অধিদপ্তর লোগো" class="header-logo">
+        <div class="header-titles">
+            <h1>মাটির স্বাস্থ্য সুরক্ষা কার্ড (সাময়িক)</h1>
+            <span>কৃষি সম্প্রসারণ অধিদপ্তর</span>
+        </div>
+    </div>
+
+    <!-- কন্টেন্ট বডি -->
+    <div class="app-body">
+        
+        <!-- টুলবার -->
+        <div class="toolbar">
+            <span class="toolbar-title">তথ্য অনুসন্ধান</span>
+            <div class="upload-btn-wrapper">
+                <button class="btn-upload">📁 Excel আপলোড</button>
+                <!-- একাধিক ফাইল আপলোডের জন্য multiple অ্যাট্রিবিউট যোগ করা হয়েছে -->
+                <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" multiple onchange="handleFileUpload(event)" />
+            </div>
+        </div>
+
+        <!-- সার্চ বক্স -->
+        <div class="search-card">
+            <label for="nidInput" class="search-label">জাতীয় পরিচয়পত্র (NID) নম্বর দিন:</label>
+            <div class="search-box-group">
+                <input type="number" id="nidInput" class="search-input" placeholder="যেমন: 5058258368">
+                <button class="btn-search" onclick="searchNID()">খুঁজুন</button>
+            </div>
+            <div id="duplicateAlert" class="duplicate-alert"></div>
+            <div id="noDataMsg" class="no-data">❌ কোনো তথ্য পাওয়া যায়নি! সঠিক NID দিন।</div>
+        </div>
+
+        <!-- সার্চ রেজাল্ট -->
+        <div id="resultCard" class="result-card">
+            <div class="user-profile">
+                <img src="https://via.placeholder.com/100?text=Farmer" id="resPhoto" class="user-img" alt="ছবি">
+                <div>
+                    <h3 id="resName" style="color: #111827; font-size: 16px;">-</h3>
+                    <p style="font-size: 12px; color: #6b7280;">কার্ড নং: <strong id="resCardNo" style="color: var(--primary-green);">-</strong></p>
+                    <p style="font-size: 12px; color: #6b7280;">NID: <strong id="resNidVal" style="color: #111827;">-</strong></p>
+                </div>
+            </div>
+
+            <div class="grid-info">
+                <div class="info-item"><span>ব্লক:</span><strong id="resBlock">-</strong></div>
+                <div class="info-item"><span>ওয়ার্ড নম্বর:</span><strong id="resWard">-</strong></div>
+                <div class="info-item"><span>পিতার নাম:</span><strong id="resFather">-</strong></div>
+                <div class="info-item"><span>মাতার নাম:</span><strong id="resMother">-</strong></div>
+                <div class="info-item"><span>গ্রাম:</span><strong id="resVillage">-</strong></div>
+                <div class="info-item"><span>মৌজার নম্বর:</span><strong id="resMouza">-</strong></div>
+                <div class="info-item"><span>জমির পরিমাণ:</span><strong id="resLand">-</strong></div>
+                <div class="info-item"><span>মোবাইল নং:</span><strong id="resMobile">-</strong></div>
+                <div class="info-item"><span>ইউনিয়ন:</span><strong id="resUnion">-</strong></div>
+            </div>
+
+            <!-- একাধিক কার্ড নেভিগেশন -->
+            <div id="cardPagination" class="card-pagination">
+                <button id="prevBtn" class="btn-page" onclick="changeCard(-1)">◀ পূর্ববর্তী</button>
+                <span id="pageIndicator" class="page-indicator">কার্ড ১ এর ১</span>
+                <button id="nextBtn" class="btn-page" onclick="changeCard(1)">পরবর্তী ▶</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ডাউনলোডার -->
+    <div class="app-footer">
+        <button class="btn-download" onclick="downloadExcel()">
+            📥 Excel Sheet ডাউনলোড করুন
+        </button>
+    </div>
+</div>
+
+<script>
+    let rawSheetData = [];
+    let matchedResults = [];
+    let currentCardIndex = 0;
+
+    // ১. একাধিক ফাইল ও একাধিক শিট প্রসেসিং
+    async function handleFileUpload(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+
+        rawSheetData = []; // নতুন আপলোডের সময় আগের ডাটা ক্লিয়ার করা
+
+        for (let f = 0; f < files.length; f++) {
+            const file = files[f];
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array' });
+
+            // ফাইলের প্রতিটি শিট প্রসেস করা
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                let extractedBlockName = "";
+                let headerIndex = -1;
+
+                // হেডার এবং ব্লক এর নাম খোঁজা
+                for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                    if (rows[i]) {
+                        rows[i].forEach(cell => {
+                            let cellStr = String(cell || '');
+                            if (cellStr.includes("ব্লক")) {
+                                extractedBlockName = cellStr.trim();
+                            }
+                        });
+
+                        if (rows[i].some(cell => String(cell).includes("জাতীয় পরিচয়পত্র") || String(cell).includes("পরিচয়পত্র") || String(cell).includes("NID"))) {
+                            headerIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (headerIndex !== -1) {
+                    const headers = rows[headerIndex].map(h => String(h || '').trim());
+                    for (let i = headerIndex + 1; i < rows.length; i++) {
+                        let rowObj = {};
+                        if (rows[i]) {
+                            headers.forEach((h, colIdx) => {
+                                if (h) rowObj[h] = rows[i][colIdx] !== undefined ? String(rows[i][colIdx]).trim() : "";
+                            });
+                            if (extractedBlockName && !rowObj["ব্লক"]) {
+                                rowObj["ব্লক_হেডার"] = extractedBlockName;
+                            }
+                            rawSheetData.push(rowObj);
+                        }
+                    }
+                } else {
+                    const jsonSheet = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                    rawSheetData = rawSheetData.concat(jsonSheet);
+                }
+            });
+        }
+
+        alert(`✅ মোট ${files.length}টি ফাইল সফলভাবে আপলোড ও যুক্ত হয়েছে! (মোট রেকর্ড: ${rawSheetData.length}টি)`);
+    }
+
+    // ২. NID দিয়ে অনুসন্ধানের লজিক
+    function searchNID() {
+        const searchVal = document.getElementById('nidInput').value.trim();
+        const resultCard = document.getElementById('resultCard');
+        const noDataMsg = document.getElementById('noDataMsg');
+        const duplicateAlert = document.getElementById('duplicateAlert');
+
+        if (!searchVal) {
+            alert('অনুগ্রহ করে সঠিক NID নম্বর দিন!');
+            return;
+        }
+
+        matchedResults = rawSheetData.filter(item => {
+            return Object.keys(item).some(key => {
+                return (key.includes("জাতীয় পরিচয়পত্র") || key.includes("NID") || key.includes("পরিচয়পত্র")) && 
+                       String(item[key]).replace(/\s+/g, '') === searchVal;
+            });
+        });
+
+        if (matchedResults.length > 0) {
+            currentCardIndex = 0;
+            noDataMsg.style.display = 'none';
+
+            if (matchedResults.length > 1) {
+                duplicateAlert.style.display = 'block';
+                duplicateAlert.innerHTML = `⚠️ ডুপ্লিকেট NID! মোট <strong>${matchedResults.length}টি</strong> কার্ড পাওয়া গেছে।`;
+            } else {
+                duplicateAlert.style.display = 'none';
+            }
+
+            renderCard();
+            resultCard.style.display = 'block';
+        } else {
+            resultCard.style.display = 'none';
+            duplicateAlert.style.display = 'none';
+            noDataMsg.style.display = 'block';
+        }
+    }
+
+    // ৩. নির্দিষ্ট কার্ড প্রদর্শন করা
+    function renderCard() {
+        const item = matchedResults[currentCardIndex];
+        const isDuplicate = matchedResults.length > 1;
+
+        document.getElementById('resName').innerText = item["নাম"] || item["Name"] || "উপলব্ধ নয়";
+        document.getElementById('resCardNo').innerText = item["কাড নং"] || item["কার্ড নং"] || "উপলব্ধ নয়";
+        
+        const nidElem = document.getElementById('resNidVal');
+        const nidVal = item["জাতীয় পরিচয়পত্র নম্বর"] || item["জাতীয় পরিচয়পত্র"] || item["NID"] || document.getElementById('nidInput').value;
+        nidElem.innerText = nidVal;
+        if(isDuplicate) {
+            nidElem.style.color = 'var(--danger-red)';
+            nidElem.style.fontWeight = 'bold';
+        } else {
+            nidElem.style.color = '#111827';
+            nidElem.style.fontWeight = 'normal';
+        }
+
+        document.getElementById('resBlock').innerText = item["ব্লক"] || item["ব্লকের নাম"] || item["Block"] || item["ব্লক_হেডার"] || "উপলব্ধ নয়";
+        document.getElementById('resFather').innerText = item["পিতার নাম"] || "উপলব্ধ নয়";
+        document.getElementById('resMother').innerText = item["মাতার নাম"] || "উপলব্ধ নয়";
+        document.getElementById('resVillage').innerText = item["গ্রাম"] || "উপলব্ধ নয়";
+        
+        document.getElementById('resWard').innerText = item["ওয়ার্ড নম্বর"] || item["ওয়ার্ড নং"] || item["ওয়ার্ড"] || item["Ward"] || "উপলব্ধ নয়";
+        document.getElementById('resMouza').innerText = item["মৌজার নম্বর"] || item["মৌজা নম্বর"] || item["মৌজা নং"] || item["মৌজা"] || item["Mouza"] || "উপলব্ধ নয়";
+
+        document.getElementById('resLand').innerText = item["জমির পরিমাণ"] || item["মোট"] || "উপলব্ধ নয়";
+        document.getElementById('resMobile').innerText = item["মোবাইল নং"] || "উপলব্ধ নয়";
+        document.getElementById('resUnion').innerText = item["ইউনিয়ন"] || "উপলব্ধ নয়";
+
+        const pagElem = document.getElementById('cardPagination');
+        if (isDuplicate) {
+            pagElem.style.display = 'flex';
+            document.getElementById('pageIndicator').innerText = `কার্ড ${currentCardIndex + 1} এর ${matchedResults.length}`;
+            document.getElementById('prevBtn').disabled = currentCardIndex === 0;
+            document.getElementById('nextBtn').disabled = currentCardIndex === matchedResults.length - 1;
+        } else {
+            pagElem.style.display = 'none';
+        }
+    }
+
+    // ৪. কার্ড পরিবর্তন (Next/Prev)
+    function changeCard(dir) {
+        currentCardIndex += dir;
+        if (currentCardIndex < 0) currentCardIndex = 0;
+        if (currentCardIndex >= matchedResults.length) currentCardIndex = matchedResults.length - 1;
+        renderCard();
+    }
+
+    // ৫. এক্সেল ডাউনলোড
+    function downloadExcel() {
+        if (!rawSheetData || rawSheetData.length === 0) {
+            alert('ডাউনলোড করার মতো কোনো তথ্য পাওয়া যায়নি!');
+            return;
+        }
+        const worksheet = XLSX.utils.json_to_sheet(rawSheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Farmer_Data");
+        XLSX.writeFile(workbook, "Combined_Soil_Health_Card_Data.xlsx");
+    }
+</script>
+
+</body>
+</html>
