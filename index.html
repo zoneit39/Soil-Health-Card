@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Firebase SDK (Realtime Database) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -282,6 +282,54 @@
             font-size: 11px;
             cursor: pointer;
             text-decoration: underline;
+        }
+
+        .btn-view {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .data-view-modal .modal-body {
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .data-table th {
+            background: var(--primary-green);
+            color: white;
+            padding: 8px 6px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 6px;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+
+        .data-table tr:hover {
+            background: #f3f4f6;
+        }
+
+        .data-table-container {
+            max-height: 70vh;
+            overflow-y: auto;
         }
 
         .search-card {
@@ -719,7 +767,10 @@
                 <span>অনলাইন ডাটা: <strong id="totalRecordCount" style="color: var(--primary-green);">০</strong> টি</span>
                 <div id="syncStatus" class="sync-loading">লাইভ সিঙ্ক চালু আছে...</div>
             </div>
-            <button class="btn-clear admin-only" onclick="clearStoredData()">🗑️ ক্লিয়ার</button>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-view" onclick="openDataViewModal()">👁️ View</button>
+                <button class="btn-clear admin-only" onclick="clearStoredData()">🗑️ ক্লিয়ার</button>
+            </div>
         </div>
 
         <!-- সার্চ বক্স -->
@@ -819,12 +870,50 @@
     </div>
 </div>
 
+<!-- ডাটা ভিউ মডাল -->
+<div id="dataViewModal" class="modal data-view-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>📊 সব অনলাইন ডাটা (<span id="dataViewCount">0</span> টি)</h2>
+            <button class="close-modal" onclick="closeDataViewModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="data-table-container">
+                <table class="data-table" id="dataViewTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>কার্ড নং</th>
+                            <th>নাম</th>
+                            <th>NID</th>
+                            <th>পিতার নাম</th>
+                            <th>মাতার নাম</th>
+                            <th>মোবাইল</th>
+                            <th>গ্রাম</th>
+                            <th>ব্লক</th>
+                            <th>ওয়ার্ড</th>
+                            <th>ইউনিয়ন</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataViewTableBody">
+                        <tr><td colspan="11" style="text-align:center; padding:20px;">লোড হচ্ছে...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    // 🔥 ১. ফায়ারবেস রিয়েলটাইম ডাটাবেজ কনফিগারেশন (আপনার সঠিক URL লিংক যুক্ত করা হয়েছে)
+    // 🔥 ১. ফায়ারবেস রিয়েলটাইম ডাটাবেজ কনফিগারেশন (✅ ঠিক করা হয়েছে - US Central location)
+    // ⚠️ নোট: এখানে শুধু databaseURL দেওয়া আছে। যদি Firebase Console → Realtime Database →
+    // Rules ঠিকঠাক খোলা (".read": true, ".write": true) থাকা সত্ত্বেও ডাটা সেভ/লোড না হয়,
+    // তাহলে Firebase Console → Project settings → General → "Your apps" থেকে সম্পূর্ণ
+    // firebaseConfig (apiKey, projectId, appId ইত্যাদিসহ) কপি করে এখানে বসান।
     const firebaseConfig = {
-        databaseURL: "https://soilcardapp-default-rtdb.asia-southeast1.firebasedatabase.app"
+        databaseURL: "https://soilcardapp-default-rtdb.firebaseio.com"
     };
-    
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -943,6 +1032,7 @@
     }
 
     // ফায়ারবেস থেকে কার্ড ডাটা রিয়েলটাইম সিঙ্ক
+    let cardDataReadErrorShown = false; // একবারই এলার্ট দেখানোর জন্য
     function listenToCardData() {
         document.getElementById('syncStatus').innerText = "অনলাইন ডাটা লোড হচ্ছে...";
         db.ref('cardData').on('value', (snapshot) => {
@@ -955,7 +1045,7 @@
             }
             updateDataCount();
             const statusEl = document.getElementById('syncStatus');
-            statusEl.innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
+            statusEl.innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয় (" + rawSheetData.length + " টি রেকর্ড)";
             statusEl.style.color = '';
         }, (error) => {
             // Firebase read পারমিশন বা কানেকশন সমস্যা হলে এখানে আসবে
@@ -963,6 +1053,11 @@
             statusEl.innerText = "❌ ডাটাবেজ সংযোগ ব্যর্থ: " + (error.message || error);
             statusEl.style.color = 'var(--danger-red)';
             console.error('Firebase cardData sync error:', error);
+            // এই এররটাই সবচেয়ে বেশি "ডাটা হারিয়ে যাওয়া"-র কারণ, তাই স্পষ্ট করে একবার জানিয়ে দেওয়া হচ্ছে
+            if (!cardDataReadErrorShown) {
+                cardDataReadErrorShown = true;
+                alert('⚠️ Firebase Realtime Database থেকে ডাটা পড়া যাচ্ছে না!\n\nকারণ: ' + (error.message || error) + '\n\nফলে আপলোড করা এক্সেলের ডাটা "সেভ" হলেও তা পরে দেখানো/ডাউনলোড করা যাচ্ছে না।\n\nসমাধান: Firebase Console → Realtime Database → Rules ট্যাবে গিয়ে অন্তত সাময়িকভাবে এভাবে সেট করুন:\n{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}\nতারপর Publish করুন।');
+            }
         });
     }
 
@@ -1043,7 +1138,7 @@
         };
 
         db.ref('appUsers/' + userId).set(newUser).then(() => {
-            alert('✅ রেজিস্ট্রেশন সফল হয়েছে! অ্যাডমিন অ্যাপ্রুভ করলে যেকোনো ডিভাইস থেকে লগইন করতে পারবেন।');
+            alert('✅ রেজিস্ট্রেশন সফল হয়েছে! অ্যাডমিন অ্যাপ্রুভ করলে যেকোনো ডিভাইস থেকে লগইন করতে পারবেন।');
             switchAuthTab('login');
         }).catch((error) => {
             console.error('Firebase register error:', error);
@@ -1125,6 +1220,58 @@
         document.getElementById('approvalModal').style.display = 'none';
     }
 
+    function openDataViewModal() {
+        document.getElementById('dataViewModal').style.display = 'block';
+        document.getElementById('dataViewCount').innerText = rawSheetData.length;
+        
+        const tbody = document.getElementById('dataViewTableBody');
+        tbody.innerHTML = '';
+        
+        if (rawSheetData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:#999;">কোনো ডাটা নেই</td></tr>';
+            return;
+        }
+        
+        // প্রথম রেকর্ডের সব কলাম দেখা
+        if (rawSheetData.length > 0) {
+            console.log('📊 প্রথম রেকর্ডের সব কলাম:', Object.keys(rawSheetData[0]));
+            console.log('📊 প্রথম রেকর্ডের ডাটা:', rawSheetData[0]);
+        }
+        
+        rawSheetData.forEach((item, index) => {
+            const row = document.createElement('tr');
+            const cardNo = getFieldValue(item, ['কাড নং', 'কাড', 'কার্ড', 'card', 'ক্রমিক']);
+            const name = getFieldValue(item, ['নাম', 'name']);
+            const nid = getFieldValue(item, ['NID', 'জাতীয় পরিচয়পত্র', 'পরিচয়পত্র']);
+            const father = getFieldValue(item, ['পিতার নাম', 'পিতা', 'father']);
+            const mother = getFieldValue(item, ['মাতার নাম', 'মাতা', 'mother']);
+            const mobile = getFieldValue(item, ['মোবাইল নং', 'মোবাইল', 'mobile', 'phone']);
+            const village = getFieldValue(item, ['গ্রাম', 'village']);
+            const block = getFieldValue(item, ['ব্লক', 'block']);
+            const ward = getFieldValue(item, ['ওয়ার্ড নং', 'ওয়ার্ড', 'ward']);
+            const union = getFieldValue(item, ['ইউনিয়ন', 'union']);
+            
+            row.innerHTML = \`
+                <td>\${index + 1}</td>
+                <td>\${cardNo}</td>
+                <td>\${name}</td>
+                <td>\${nid}</td>
+                <td>\${father}</td>
+                <td>\${mother}</td>
+                <td>\${mobile}</td>
+                <td>\${village}</td>
+                <td>\${block}</td>
+                <td>\${ward}</td>
+                <td>\${union}</td>
+            \`;
+            tbody.appendChild(row);
+        });
+    }
+
+    function closeDataViewModal() {
+        document.getElementById('dataViewModal').style.display = 'none';
+    }
+
     function approveUser(userId) {
         db.ref('appUsers/' + userId + '/status').set('approved').then(() => {
             alert(`✅ আবেদন অ্যাপ্রুভ করা হয়েছে!`);
@@ -1160,7 +1307,11 @@
     function banglaToEnglishDigits(str) {
         if (!str) return '';
         const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-        return String(str).replace(/[০-৯]/g, d => banglaDigits.indexOf(d));
+        let result = String(str).replace(/[০-৯]/g, d => banglaDigits.indexOf(d));
+        // এক্সেল/সিএসভি থেকে আসা "1234567890.0" জাতীয় trailing .0 ঝামেলা দূর করা হচ্ছে,
+        // যাতে NID/মোবাইল নম্বর দিয়ে সার্চ করলে মিলে যায়
+        result = result.replace(/\.0+$/, '');
+        return result;
     }
 
     function updateDataCount() {
@@ -1197,53 +1348,115 @@
         for (let f = 0; f < files.length; f++) {
             const file = files[f];
             const data = await file.arrayBuffer();
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { type: 'array', cellText: true, raw: false });
 
             workbook.SheetNames.forEach(sheetName => {
                 const sheet = workbook.Sheets[sheetName];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+
+                console.log(`📋 শীট "${sheetName}" এ মোট ${rows.length} টি রো আছে`);
 
                 let extractedBlockName = "";
+                let extractedWardName = "";
                 let headerIndex = -1;
 
+                // প্রথম 10 রো চেক করে ব্লক, ওয়ার্ড এবং হেডার খুঁজছি
                 for (let i = 0; i < Math.min(rows.length, 10); i++) {
-                    if (rows[i]) {
-                        rows[i].forEach(cell => {
-                            let cellStr = String(cell || '');
-                            if (cellStr.includes("ব্লক")) {
-                                extractedBlockName = cellStr.trim();
-                            }
-                        });
+                    if (rows[i] && rows[i].length > 0) {
+                        // ব্লক এবং ওয়ার্ড বের করা
+                        const firstCell = String(rows[i][0] || '').trim();
+                        if (firstCell.includes("ব্লক")) {
+                            extractedBlockName = firstCell;
+                        }
+                        if (firstCell.includes("ওয়ার্ড") && firstCell.length < 30) {
+                            extractedWardName = firstCell;
+                        }
 
-                        if (rows[i].some(cell => {
-                            let str = String(cell || '');
-                            return str.includes("জাতীয় পরিচয়পত্র") || str.includes("NID") || str.includes("কার্ড") || str.includes("কাড");
-                        })) {
+                        // হেডার রো চিনতে - যেখানে "নাম", "পিতার নাম" একসাথে আছে
+                        const hasName = rows[i].some(c => String(c || '').trim() === "নাম");
+                        const hasFatherName = rows[i].some(c => String(c || '').trim().includes("পিতার নাম"));
+                        
+                        if (hasName && hasFatherName) {
                             headerIndex = i;
+                            console.log(`✅ হেডার রো পাওয়া গেছে index ${i}`);
+                            console.log('হেডার:', rows[i].slice(0, 8));
                             break;
                         }
                     }
                 }
 
                 if (headerIndex !== -1) {
+                    // হেডার পড়া
                     const headers = rows[headerIndex].map(h => String(h || '').trim());
-                    for (let i = headerIndex + 1; i < rows.length; i++) {
-                        let rowObj = {};
-                        if (rows[i]) {
+                    
+                    // চেক করি পরের রোতে সাব-হেডার আছে কিনা
+                    let dataStartRow = headerIndex + 1;
+                    const nextRow = rows[headerIndex + 1];
+                    
+                    if (nextRow) {
+                        const nextRowText = nextRow.map(c => String(c || '').trim()).join('|');
+                        // যদি "নিজস্ব" বা "বর্গা" থাকে তাহলে এটা সাব-হেডার
+                        if (nextRowText.includes('নিজস্ব') || nextRowText.includes('বর্গা')) {
+                            console.log('সাব-হেডার পাওয়া গেছে');
+                            // সাব-হেডার মার্জ করা
                             headers.forEach((h, colIdx) => {
-                                if (h) rowObj[h] = rows[i][colIdx] !== undefined ? String(rows[i][colIdx]).trim() : "";
+                                const subVal = String(nextRow[colIdx] || '').trim();
+                                if ((!h || h === '') && subVal) {
+                                    headers[colIdx] = subVal;
+                                }
                             });
+                            dataStartRow = headerIndex + 2;
+                        }
+                    }
+
+                    console.log('📌 চূড়ান্ত হেডার:', headers);
+                    console.log(`📊 ডেটা শুরু রো: ${dataStartRow}`);
+
+                    let validRowCount = 0;
+                    for (let i = dataStartRow; i < rows.length; i++) {
+                        if (rows[i]) {
+                            let rowObj = {};
+                            let hasData = false;
+
+                            headers.forEach((h, colIdx) => {
+                                if (h && h !== '') {
+                                    const cellValue = rows[i][colIdx];
+                                    const val = cellValue !== undefined && cellValue !== null ? String(cellValue).trim() : "";
+                                    rowObj[h] = val;
+                                    if (val && val !== '' && val !== '-' && val.toLowerCase() !== 'nan') {
+                                        hasData = true;
+                                    }
+                                }
+                            });
+
+                            // ব্লক এবং ওয়ার্ড যোগ করা
                             if (extractedBlockName && !rowObj["ব্লক"]) {
                                 rowObj["ব্লক"] = extractedBlockName;
                             }
-                            newlyAddedData.push(rowObj);
+                            if (extractedWardName && !rowObj["ওয়ার্ড"] && !rowObj["ওয়ার্ড নং"]) {
+                                rowObj["ওয়ার্ড"] = extractedWardName;
+                            }
+
+                            if (hasData) {
+                                newlyAddedData.push(rowObj);
+                                validRowCount++;
+                            }
                         }
                     }
+                    console.log(`✅ শীট "${sheetName}" থেকে ${validRowCount} টি বৈধ রো পাওয়া গেছে`);
                 } else {
-                    const jsonSheet = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-                    newlyAddedData = newlyAddedData.concat(jsonSheet);
+                    console.log('⚠️ হেডার রো খুঁজে পাওয়া যায়নি');
                 }
             });
+        }
+
+                // ফাইলের কোনো সারিতেই ডাটা না পাওয়া গেলে মিথ্যা "সফল" মেসেজ না দেখিয়ে সত্যিটা জানানো হচ্ছে
+        if (newlyAddedData.length === 0) {
+            document.getElementById('syncStatus').innerText = "❌ ফাইলে কোনো তথ্য পাওয়া যায়নি";
+            document.getElementById('syncStatus').style.color = 'var(--danger-red)';
+            alert('❌ এই ফাইল থেকে কোনো তথ্য পড়া যায়নি!\n\nসম্ভবত হেডার সারিতে "কার্ড", "কাড" বা "জাতীয় পরিচয়পত্র"/"NID" লেখা কোনো কলাম খুঁজে পাওয়া যায়নি, অথবা হেডারের নিচের সব সারি খালি।\n\nফাইলের ফরম্যাট চেক করুন।');
+            event.target.value = ''; // একই ফাইল আবার সিলেক্ট করা যাবে
+            return;
         }
 
         document.getElementById('syncStatus').innerText = "অনলাইনে ডাটা আপলোড হচ্ছে...";
@@ -1256,23 +1469,25 @@
         db.ref().update(updates).then(() => {
             document.getElementById('syncStatus').innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
             document.getElementById('syncStatus').style.color = '';
-            alert(`✅ ${files.length} টি ফাইল সফলভাবে অনলাইনে আপলোড হয়েছে! এখন যেকোনো ডিভাইস থেকে সবাই দেখতে পাবে।`);
+            alert(`✅ ${newlyAddedData.length} টি রেকর্ড সফলভাবে অনলাইনে আপলোড হয়েছে! এখন যেকোনো ডিভাইস থেকে সবাই দেখতে পাবে।`);
+            event.target.value = ''; // একই ফাইল আবার সিলেক্ট করা যাবে (রিফ্রেশ ছাড়াই)
         }).catch((error) => {
             const statusEl = document.getElementById('syncStatus');
             statusEl.innerText = "❌ আপলোড ব্যর্থ: " + (error.message || error);
             statusEl.style.color = 'var(--danger-red)';
             console.error('Firebase upload error:', error);
-            alert('❌ আপলোড ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Console → Realtime Database → Rules-এ write বন্ধ (false) করা আছে। Rules-এ ".write": true করে দিন।');
+            alert('❌ আপলোড ব্যর্থ হয়েছে! এই কারণেই আপলোড করা ডাটা "হারিয়ে যাচ্ছে" মনে হচ্ছে।\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Console → Realtime Database → Rules-এ write বন্ধ (false) করা আছে। Rules-এ ".write": true করে দিন।');
+            event.target.value = '';
         });
     }
 
     function switchSearchTab(tab) {
         const tabBtns = document.querySelectorAll('.search-tab-btn');
         tabBtns.forEach(btn => btn.classList.remove('active'));
-        
+
         const nidGroup = document.getElementById('nidSearchGroup');
         const cardGroup = document.getElementById('cardSearchGroup');
-        
+
         if (tab === 'nid') {
             tabBtns[0].classList.add('active');
             nidGroup.classList.add('active');
@@ -1310,18 +1525,27 @@
 
         const normalizedSearchVal = banglaToEnglishDigits(searchVal).replace(/[\s\-_]/g, '').toLowerCase();
 
+        console.log('🔍 Searching for:', normalizedSearchVal);
+        console.log('📊 Total records:', rawSheetData.length);
+
         matchedResults = rawSheetData.filter(item => {
             return Object.keys(item).some(key => {
                 const normalizedKey = key.toLowerCase();
                 const isMatchingKey = fieldsToSearch.some(field => normalizedKey.includes(field.toLowerCase()));
 
-                if (isMatchingKey && item[key] !== undefined && item[key] !== null && String(item[key]).trim() !== "") {
-                    const itemVal = banglaToEnglishDigits(item[key]).replace(/[\s\-_]/g, '').toLowerCase();
-                    return itemVal === normalizedSearchVal || itemVal.includes(normalizedSearchVal);
+                if (isMatchingKey) {
+                    const val = item[key];
+                    if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).toLowerCase() !== 'nan') {
+                        const itemVal = banglaToEnglishDigits(String(val)).replace(/[\s\-_]/g, '').toLowerCase();
+                        console.log(`  Checking ${key}: "${itemVal}" vs "${normalizedSearchVal}"`);
+                        return itemVal.includes(normalizedSearchVal);
+                    }
                 }
                 return false;
             });
         });
+
+        console.log('✅ Found matches:', matchedResults.length);
 
         if (matchedResults.length > 0) {
             currentCardIndex = 0;
@@ -1346,7 +1570,11 @@
     function getFieldValue(item, keys) {
         for (let k of Object.keys(item)) {
             if (keys.some(key => k.toLowerCase().includes(key.toLowerCase()))) {
-                if (item[k]) return item[k];
+                // Check if value exists and is not empty/null/undefined
+                const val = item[k];
+                if (val !== undefined && val !== null && val !== '' && String(val).trim() !== '' && String(val).toLowerCase() !== 'nan') {
+                    return String(val).trim();
+                }
             }
         }
         return "-";
@@ -1358,7 +1586,7 @@
 
         document.getElementById('resCardNo').innerText = getFieldValue(item, ['কাড', 'কার্ড', 'card', 'ক্রমিক']);
         document.getElementById('resName').innerText = getFieldValue(item, ['নাম', 'name']);
-        
+
         const nidElem = document.getElementById('resNidVal');
         const nidVal = getFieldValue(item, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
         nidElem.innerText = nidVal;
