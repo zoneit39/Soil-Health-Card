@@ -663,6 +663,7 @@
             <input type="password" id="loginPassword" class="auth-input" placeholder="Password লিখুন">
         </div>
         <button class="btn-auth" onclick="handleLogin()">লগইন করুন</button>
+        <div id="loginSyncStatus" style="margin-top:10px; font-size:12px; text-align:center; color:#6b7280;">ডাটাবেজের সাথে সংযোগ করা হচ্ছে...</div>
     </div>
 
     <!-- রেজিস্ট্রেশন ফর্ম -->
@@ -843,6 +844,9 @@
     };
 
     // ফায়ারবেস থেকে ইউজার ডাটা রিয়েলটাইম সিঙ্ক
+    let usersSynced = false;
+    let usersSyncError = null;
+
     function listenToUsers() {
         db.ref('appUsers').on('value', (snapshot) => {
             const data = snapshot.val();
@@ -855,8 +859,29 @@
             if (!registeredUsers.some(u => u.userId === defaultAdmin.userId)) {
                 db.ref('appUsers/' + defaultAdmin.userId).set(defaultAdmin);
             }
+            usersSynced = true;
+            usersSyncError = null;
+            updateLoginSyncStatus();
             updatePendingBadge();
+        }, (error) => {
+            // এই কলব্যাক তখনই চলে যখন Firebase read পারমিশন সমস্যা বা কানেকশন সমস্যা হয়
+            usersSynced = false;
+            usersSyncError = error.message || String(error);
+            console.error('Firebase appUsers sync error:', error);
+            updateLoginSyncStatus();
         });
+    }
+
+    function updateLoginSyncStatus() {
+        const el = document.getElementById('loginSyncStatus');
+        if (!el) return;
+        if (usersSyncError) {
+            el.innerHTML = '⚠️ ডাটাবেজ সংযোগ ব্যর্থ (Firebase Rules চেক করুন)। ডিফল্ট অ্যাডমিন দিয়ে লগইন করা যাবে।';
+            el.style.color = 'var(--danger-red)';
+        } else if (usersSynced) {
+            el.innerText = '✅ ডাটাবেজ প্রস্তুত';
+            el.style.color = '#16a34a';
+        }
     }
 
     // ফায়ারবেস থেকে কার্ড ডাটা রিয়েলটাইম সিঙ্ক
@@ -899,10 +924,23 @@
             return;
         }
 
-        const user = registeredUsers.find(u => u.userId === userId && u.password === password);
+        // ডিফল্ট অ্যাডমিন সবসময় লগইন করতে পারবে, Firebase সিঙ্ক হোক বা না হোক —
+        // যাতে Firebase-এ সমস্যা হলেও অ্যাডমিন লগইন করে Rules/ডাটা ঠিক করতে পারে
+        let user = null;
+        if (userId === defaultAdmin.userId && password === defaultAdmin.password) {
+            user = defaultAdmin;
+        } else {
+            user = registeredUsers.find(u => u.userId === userId && u.password === password);
+        }
 
         if (!user) {
-            alert('❌ ভুল ইউজার আইডি বা পাসওয়ার্ড!');
+            if (usersSyncError) {
+                alert('⚠️ Firebase ডাটাবেজের সাথে সংযোগ করা যায়নি!\n\nকারণ: ' + usersSyncError + '\n\nসম্ভবত Firebase Console → Realtime Database → Rules-এ read/write বন্ধ (false) করা আছে। ডিফল্ট অ্যাডমিন (User ID: 25800) দিয়ে লগইন করে চেক করুন, অথবা Rules খুলে দিন।');
+            } else if (!usersSynced) {
+                alert('⏳ ইউজার ডাটা এখনো সিঙ্ক হচ্ছে, কয়েক সেকেন্ড অপেক্ষা করে আবার চেষ্টা করুন।');
+            } else {
+                alert('❌ ভুল ইউজার আইডি বা পাসওয়ার্ড!');
+            }
             return;
         }
 
