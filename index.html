@@ -835,6 +835,63 @@
     let currentUser = null;
     let registeredUsers = [];
 
+    // ---- সেশন পারসিস্টেন্স (page reload দিলেও লগইন থাকবে) ----
+    const SESSION_KEY = 'soilCardSession';
+
+    function saveSession(user) {
+        try {
+            localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+        } catch (e) {
+            console.error('সেশন সেভ করা যায়নি:', e);
+        }
+    }
+
+    function loadSession() {
+        try {
+            const raw = localStorage.getItem(SESSION_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function clearSession() {
+        try {
+            localStorage.removeItem(SESSION_KEY);
+        } catch (e) {}
+    }
+
+    function applyLoggedInUI(user) {
+        currentUser = user;
+        document.getElementById('authContainer').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'flex';
+        document.getElementById('currentUserDisplay').innerText = `ইউজার: ${user.name} (${user.role === 'admin' ? 'অ্যাডমিন' : 'সাধারণ ইউজার'})`;
+
+        const adminElements = document.querySelectorAll('.admin-only');
+        if (user.role === 'admin') {
+            adminElements.forEach(el => el.style.display = 'block');
+            updatePendingBadge();
+        } else {
+            adminElements.forEach(el => el.style.display = 'none');
+        }
+    }
+
+    // Firebase থেকে ইউজার লিস্ট সিঙ্ক হওয়ার পর সেভ করা সেশন এখনও বৈধ কিনা যাচাই করে
+    function revalidateSession() {
+        if (!currentUser) return;
+        if (currentUser.userId === defaultAdmin.userId) return; // ডিফল্ট অ্যাডমিন সবসময় বৈধ
+
+        const freshUser = registeredUsers.find(u => u.userId === currentUser.userId);
+        if (!freshUser || freshUser.status !== 'approved') {
+            alert('⚠️ আপনার সেশন আর বৈধ নয়। আবার লগইন করুন।');
+            handleLogout();
+            return;
+        }
+        // রোল/স্ট্যাটাস পরিবর্তিত হলে UI ও সেশন আপডেট রাখা হচ্ছে
+        saveSession(freshUser);
+        applyLoggedInUI(freshUser);
+    }
+
     const defaultAdmin = {
         userId: "25800",
         password: "Land@123",
@@ -863,6 +920,7 @@
             usersSyncError = null;
             updateLoginSyncStatus();
             updatePendingBadge();
+            revalidateSession();
         }, (error) => {
             // এই কলব্যাক তখনই চলে যখন Firebase read পারমিশন সমস্যা বা কানেকশন সমস্যা হয়
             usersSynced = false;
@@ -896,7 +954,15 @@
                 });
             }
             updateDataCount();
-            document.getElementById('syncStatus').innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
+            statusEl.style.color = '';
+        }, (error) => {
+            // Firebase read পারমিশন বা কানেকশন সমস্যা হলে এখানে আসবে
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.innerText = "❌ ডাটাবেজ সংযোগ ব্যর্থ: " + (error.message || error);
+            statusEl.style.color = 'var(--danger-red)';
+            console.error('Firebase cardData sync error:', error);
         });
     }
 
@@ -949,18 +1015,8 @@
             return;
         }
 
-        currentUser = user;
-        document.getElementById('authContainer').style.display = 'none';
-        document.getElementById('appContainer').style.display = 'flex';
-        document.getElementById('currentUserDisplay').innerText = `ইউজার: ${user.name} (${user.role === 'admin' ? 'অ্যাডমিন' : 'সাধারণ ইউজার'})`;
-
-        const adminElements = document.querySelectorAll('.admin-only');
-        if (user.role === 'admin') {
-            adminElements.forEach(el => el.style.display = 'block');
-            updatePendingBadge();
-        } else {
-            adminElements.forEach(el => el.style.display = 'none');
-        }
+        saveSession(user);
+        applyLoggedInUI(user);
     }
 
     function handleRegister() {
@@ -989,11 +1045,15 @@
         db.ref('appUsers/' + userId).set(newUser).then(() => {
             alert('✅ রেজিস্ট্রেশন সফল হয়েছে! অ্যাডমিন অ্যাপ্রুভ করলে যেকোনো ডিভাইস থেকে লগইন করতে পারবেন।');
             switchAuthTab('login');
+        }).catch((error) => {
+            console.error('Firebase register error:', error);
+            alert('❌ রেজিস্ট্রেশন ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Rules-এ write অনুমতি বন্ধ আছে।');
         });
     }
 
     function handleLogout() {
         currentUser = null;
+        clearSession();
         document.getElementById('loginUserId').value = '';
         document.getElementById('loginPassword').value = '';
         document.getElementById('appContainer').style.display = 'none';
@@ -1069,6 +1129,9 @@
         db.ref('appUsers/' + userId + '/status').set('approved').then(() => {
             alert(`✅ আবেদন অ্যাপ্রুভ করা হয়েছে!`);
             openApprovalModal();
+        }).catch((error) => {
+            console.error('Firebase approve error:', error);
+            alert('❌ অ্যাপ্রুভ ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
         });
     }
 
@@ -1076,6 +1139,9 @@
         db.ref('appUsers/' + userId).remove().then(() => {
             alert('❌ আবেদনটি বাতিল করা হয়েছে!');
             openApprovalModal();
+        }).catch((error) => {
+            console.error('Firebase reject error:', error);
+            alert('❌ কাজটি ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
         });
     }
 
@@ -1084,6 +1150,9 @@
             db.ref('appUsers/' + userId).remove().then(() => {
                 alert('✅ ইউজার মুছে ফেলা হয়েছে!');
                 openApprovalModal();
+            }).catch((error) => {
+                console.error('Firebase delete user error:', error);
+                alert('❌ মুছে ফেলা ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
             });
         }
     }
@@ -1107,6 +1176,9 @@
         if (confirm('সব ডাটা অনলাইন থেকে মুছে ফেলতে চান? এতে কোনো ইউজারই আর ডাটা দেখতে পাবে না।')) {
             db.ref('cardData').remove().then(() => {
                 alert('✅ অনলাইন থেকে সব ডাটা মুছে ফেলা হয়েছে!');
+            }).catch((error) => {
+                console.error('Firebase clear data error:', error);
+                alert('❌ ডাটা মুছতে ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
             });
         }
     }
@@ -1182,7 +1254,15 @@
         });
 
         db.ref().update(updates).then(() => {
+            document.getElementById('syncStatus').innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
+            document.getElementById('syncStatus').style.color = '';
             alert(`✅ ${files.length} টি ফাইল সফলভাবে অনলাইনে আপলোড হয়েছে! এখন যেকোনো ডিভাইস থেকে সবাই দেখতে পাবে।`);
+        }).catch((error) => {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.innerText = "❌ আপলোড ব্যর্থ: " + (error.message || error);
+            statusEl.style.color = 'var(--danger-red)';
+            console.error('Firebase upload error:', error);
+            alert('❌ আপলোড ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Console → Realtime Database → Rules-এ write বন্ধ (false) করা আছে। Rules-এ ".write": true করে দিন।');
         });
     }
 
@@ -1379,6 +1459,9 @@
         db.ref('cardData').push(newEntry).then(() => {
             alert(`✅ নতুন তথ্য অনলাইন ডাটাবেজে সেভ হয়েছে!`);
             closeEntryForm();
+        }).catch((error) => {
+            console.error('Firebase save entry error:', error);
+            alert('❌ সেভ ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Rules-এ write অনুমতি বন্ধ আছে।');
         });
     }
 
@@ -1400,6 +1483,10 @@
     }
 
     window.addEventListener('load', () => {
+        const savedUser = loadSession();
+        if (savedUser) {
+            applyLoggedInUI(savedUser); // রিলোডেও সাথে সাথে লগইন অবস্থা ফিরিয়ে আনা হচ্ছে
+        }
         listenToUsers();
         listenToCardData();
     });
