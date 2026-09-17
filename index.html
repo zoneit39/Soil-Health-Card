@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>মাটির স্বাস্থ্য সুরক্ষা কার্ড (সাময়িক)</title>
+    <title>মাটির স্বাস্থ্য সুরক্ষা কার্ড</title>
 
     <!-- SheetJS Library -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
     
+    <!-- Firebase SDK (Realtime Database-এর জন্য) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         :root {
             --primary-green: #1b5e20;
@@ -37,6 +41,56 @@
             padding: 0;
         }
 
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
+            background: #fff;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            margin: 16px;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .auth-header h2 {
+            color: var(--primary-green);
+            font-size: 20px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .auth-tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: #e5e7eb;
+            color: #374151;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .auth-tab-btn.active {
+            background: var(--primary-green);
+            color: white;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
         .app-container {
             width: 100%;
             max-width: 450px;
@@ -44,7 +98,7 @@
             max-height: 920px;
             background: var(--card-bg);
             box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            display: flex;
+            display: none;
             flex-direction: column;
             position: relative;
             overflow: hidden;
@@ -80,38 +134,46 @@
             padding: 14px 16px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: space-between;
             position: relative;
             z-index: 2;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
         .header-logo {
-            width: 45px;
-            height: 45px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: white;
             padding: 2px;
             object-fit: contain;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .header-titles {
-            display: flex;
-            flex-direction: column;
-            text-align: left;
         }
 
         .header-titles h1 {
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 700;
-            line-height: 1.2;
         }
 
         .header-titles span {
             font-size: 11px;
             opacity: 0.9;
-            font-weight: 500;
+        }
+
+        .btn-logout {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
         }
 
         .app-body {
@@ -133,6 +195,10 @@
             border: 1px solid #e5e7eb;
             flex-wrap: wrap;
             gap: 8px;
+        }
+
+        .admin-only {
+            display: none;
         }
 
         .toolbar-title {
@@ -162,7 +228,6 @@
             font-weight: 600;
             border: none;
             cursor: pointer;
-            box-shadow: 0 2px 6px rgba(27, 94, 32, 0.3);
         }
 
         .upload-btn-wrapper input[type=file] {
@@ -183,7 +248,17 @@
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-admin-approval {
+            background-color: #f59e0b;
+            color: white;
+            border: none;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
         }
 
         .status-bar {
@@ -215,7 +290,6 @@
             padding: 14px;
             border-radius: 12px;
             margin-bottom: 14px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
 
         .search-tabs {
@@ -234,7 +308,6 @@
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
         }
 
         .search-tab-btn.active {
@@ -264,30 +337,33 @@
             gap: 8px;
         }
 
-        .search-input {
-            flex: 1;
-            padding: 12px;
+        .search-input, .auth-input {
+            width: 100%;
+            padding: 10px;
             border: 1.5px solid #d1d5db;
-            border-radius: 10px;
-            font-size: 15px;
+            border-radius: 8px;
+            font-size: 14px;
             outline: none;
-            background: #fff;
         }
 
-        .search-input:focus {
+        .search-input:focus, .auth-input:focus {
             border-color: var(--primary-green);
         }
 
-        .btn-search {
+        .btn-search, .btn-auth {
             background-color: var(--primary-green);
             color: white;
             border: none;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: 13px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 2px 6px rgba(27, 94, 32, 0.3);
+            width: 100%;
+        }
+
+        .btn-search {
+            width: auto;
         }
 
         .duplicate-alert {
@@ -319,7 +395,6 @@
             border-radius: 14px;
             padding: 16px;
             margin-bottom: 14px;
-            box-shadow: 0 4px 12px rgba(27, 94, 32, 0.12);
             display: none;
         }
 
@@ -394,14 +469,12 @@
             font-size: 15px;
             font-weight: 700;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
         }
 
-        /* মডাল স্টাইল */
         .modal {
             display: none;
             position: fixed;
@@ -420,19 +493,18 @@
             width: 100%;
             height: 100%;
             overflow-y: auto;
-            border-radius: 0;
             display: flex;
             flex-direction: column;
         }
 
         @media (min-width: 480px) {
             .modal-content {
-                margin: 10vh auto;
+                margin: 5vh auto;
                 width: 90%;
                 max-width: 500px;
                 height: auto;
                 border-radius: 16px;
-                max-height: 85vh;
+                max-height: 90vh;
             }
         }
 
@@ -457,9 +529,6 @@
             color: white;
             font-size: 28px;
             cursor: pointer;
-            padding: 0;
-            width: 30px;
-            height: 30px;
         }
 
         .modal-body {
@@ -480,40 +549,6 @@
             margin-bottom: 6px;
         }
 
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1.5px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 14px;
-            font-family: 'Hind Siliguri', sans-serif;
-            outline: none;
-        }
-
-        .form-group input:focus,
-        .form-group textarea:focus {
-            border-color: var(--primary-green);
-            background-color: #f0fdf4;
-        }
-
-        .image-preview {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-            flex-wrap: wrap;
-        }
-
-        .image-preview img {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 2px solid #e5e7eb;
-            cursor: pointer;
-            position: relative;
-        }
-
         .modal-footer {
             padding: 16px;
             border-top: 1px solid #e5e7eb;
@@ -531,7 +566,6 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 2px 6px rgba(27, 94, 32, 0.3);
         }
 
         .btn-cancel-entry {
@@ -545,57 +579,165 @@
             font-weight: 600;
             cursor: pointer;
         }
+
+        .user-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .user-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .user-card-details {
+            font-size: 12px;
+            color: #4b5563;
+            background: #fff;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px dashed #cbd5e1;
+        }
+
+        .btn-approve {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-reject {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary-green);
+            margin: 12px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 2px solid var(--primary-green);
+        }
+
+        .sync-loading {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
 
-<div class="app-container">
+<!-- অথেন্টিকেশন স্ক্রিন -->
+<div id="authContainer" class="auth-container">
+    <div class="auth-header">
+        <h2>🌱 সফটওয়্যার অ্যাক্সেস</h2>
+    </div>
+    <div class="auth-tabs">
+        <button class="auth-tab-btn active" onclick="switchAuthTab('login')">লগইন</button>
+        <button class="auth-tab-btn" onclick="switchAuthTab('register')">রেজিস্ট্রেশন</button>
+    </div>
+
+    <!-- লগইন ফর্ম -->
+    <div id="loginForm" class="auth-form active">
+        <div class="form-group">
+            <label>ইউজার আইডি / User ID</label>
+            <input type="text" id="loginUserId" class="auth-input" placeholder="User ID লিখুন">
+        </div>
+        <div class="form-group">
+            <label>পাসওয়ার্ড / Password</label>
+            <input type="password" id="loginPassword" class="auth-input" placeholder="Password লিখুন">
+        </div>
+        <button class="btn-auth" onclick="handleLogin()">লগইন করুন</button>
+    </div>
+
+    <!-- রেজিস্ট্রেশন ফর্ম -->
+    <div id="registerForm" class="auth-form">
+        <div class="form-group">
+            <label>নাম / Name</label>
+            <input type="text" id="regName" class="auth-input" placeholder="আপনার নাম">
+        </div>
+        <div class="form-group">
+            <label>ইউজার আইডি / User ID</label>
+            <input type="text" id="regUserId" class="auth-input" placeholder="নতুন User ID দিন">
+        </div>
+        <div class="form-group">
+            <label>পাসওয়ার্ড / Password</label>
+            <input type="password" id="regPassword" class="auth-input" placeholder="Password দিন">
+        </div>
+        <button class="btn-auth" onclick="handleRegister()">রেজিস্টার করুন</button>
+    </div>
+</div>
+
+<!-- মূল অ্যাপ কন্টেইনার -->
+<div id="appContainer" class="app-container">
     <div class="app-watermark"></div>
 
     <!-- হেডার -->
     <div class="app-header">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/DAE_Logo.png" alt="Logo" class="header-logo">
-        <div class="header-titles">
-            <h1>🌱 মাটির স্বাস্থ্য সুরক্ষা কার্ড (সাময়িক)</h1>
-            <span>তথ্য অনুসন্ধান ও সংরক্ষণ</span>
+        <div class="header-info">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/DAE_Logo.png" alt="Logo" class="header-logo">
+            <div class="header-titles">
+                <h1>🌱 মাটির স্বাস্থ্য সুরক্ষা কার্ড</h1>
+                <span id="currentUserDisplay">ইউজার: -</span>
+            </div>
         </div>
+        <button class="btn-logout" onclick="handleLogout()">লগআউট</button>
     </div>
 
     <!-- কন্টেন্ট এলাকা -->
     <div class="app-body">
         <div class="toolbar">
-            <span class="toolbar-title">তথ্য ব্যবস্থাপনা</span>
+            <span class="toolbar-title">অনলাইন তথ্য ব্যবস্থা</span>
             <div class="toolbar-buttons">
-                <button class="btn-add-entry" onclick="openEntryForm()">➕ নতুন</button>
-                <div class="upload-btn-wrapper">
-                    <button class="btn-upload">📁 Excel</button>
+                <button id="adminApprovalBtn" class="btn-admin-approval admin-only" onclick="openApprovalModal()">👑 ইউজার কন্ট্রোল (<span id="pendingCount">0</span>)</button>
+                <button class="btn-add-entry admin-only" onclick="openEntryForm()">➕ নতুন</button>
+                <div class="upload-btn-wrapper admin-only">
+                    <button class="btn-upload">📁 Excel আপলোড</button>
                     <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" multiple onchange="handleFileUpload(event)" />
                 </div>
             </div>
         </div>
 
         <div class="status-bar">
-            <span>সংরক্ষিত: <strong id="totalRecordCount" style="color: var(--primary-green);">০</strong> টি</span>
-            <button class="btn-clear" onclick="clearStoredData()">🗑️ ক্লিয়ার</button>
+            <div>
+                <span>অনলাইন ডাটা: <strong id="totalRecordCount" style="color: var(--primary-green);">০</strong> টি</span>
+                <div id="syncStatus" class="sync-loading">লাইভ সিঙ্ক চালু আছে...</div>
+            </div>
+            <button class="btn-clear admin-only" onclick="clearStoredData()">🗑️ ক্লিয়ার</button>
         </div>
 
         <!-- সার্চ বক্স -->
         <div class="search-card">
             <div class="search-tabs">
                 <button class="search-tab-btn active" onclick="switchSearchTab('nid')">🔍 NID</button>
-                <button class="search-tab-btn" onclick="switchSearchTab('card')">🔍 কাড নং</button>
+                <button class="search-tab-btn" onclick="switchSearchTab('card')">🔍 কার্ড নং</button>
             </div>
 
             <div id="nidSearchGroup" class="search-input-group active">
                 <label for="nidInput" class="search-label">জাতীয় পরিচয়পত্র নম্বর:</label>
                 <div class="search-box-group">
-                    <input type="number" id="nidInput" class="search-input" placeholder="যেমন: 5058258368">
+                    <input type="text" id="nidInput" class="search-input" placeholder="যেমন: 5058258368">
                     <button class="btn-search" onclick="searchByNID()">খুঁজুন</button>
                 </div>
             </div>
 
             <div id="cardSearchGroup" class="search-input-group">
-                <label for="cardInput" class="search-label">কাড নম্বর:</label>
+                <label for="cardInput" class="search-label">কার্ড নম্বর:</label>
                 <div class="search-box-group">
                     <input type="text" id="cardInput" class="search-input" placeholder="যেমন: SHC-2024-001">
                     <button class="btn-search" onclick="searchByCard()">খুঁজুন</button>
@@ -608,54 +750,18 @@
 
         <!-- সার্চ রেজাল্ট -->
         <div id="resultCard" class="result-card">
-            <div class="result-field">
-                <span class="result-label">কাড নং:</span>
-                <span class="result-value" id="resCardNo">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">নাম:</span>
-                <span class="result-value" id="resName">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">NID:</span>
-                <span class="result-value" id="resNidVal">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">পিতা:</span>
-                <span class="result-value" id="resFather">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">মাতা:</span>
-                <span class="result-value" id="resMother">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">ব্লক:</span>
-                <span class="result-value" id="resBlock">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">গ্রাম:</span>
-                <span class="result-value" id="resVillage">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">ওয়ার্ড:</span>
-                <span class="result-value" id="resWard">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">মৌজা:</span>
-                <span class="result-value" id="resMouza">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">জমি:</span>
-                <span class="result-value" id="resLand">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">মোবাইল:</span>
-                <span class="result-value" id="resMobile">-</span>
-            </div>
-            <div class="result-field">
-                <span class="result-label">ইউনিয়ন:</span>
-                <span class="result-value" id="resUnion">-</span>
-            </div>
+            <div class="result-field"><span class="result-label">কার্ড নং:</span><span class="result-value" id="resCardNo">-</span></div>
+            <div class="result-field"><span class="result-label">নাম:</span><span class="result-value" id="resName">-</span></div>
+            <div class="result-field"><span class="result-label">NID:</span><span class="result-value" id="resNidVal">-</span></div>
+            <div class="result-field"><span class="result-label">পিতা:</span><span class="result-value" id="resFather">-</span></div>
+            <div class="result-field"><span class="result-label">মাতা:</span><span class="result-value" id="resMother">-</span></div>
+            <div class="result-field"><span class="result-label">ব্লক:</span><span class="result-value" id="resBlock">-</span></div>
+            <div class="result-field"><span class="result-label">গ্রাম:</span><span class="result-value" id="resVillage">-</span></div>
+            <div class="result-field"><span class="result-label">ওয়ার্ড:</span><span class="result-value" id="resWard">-</span></div>
+            <div class="result-field"><span class="result-label">মৌজা:</span><span class="result-value" id="resMouza">-</span></div>
+            <div class="result-field"><span class="result-label">জমি:</span><span class="result-value" id="resLand">-</span></div>
+            <div class="result-field"><span class="result-label">মোবাইল:</span><span class="result-value" id="resMobile">-</span></div>
+            <div class="result-field"><span class="result-label">ইউনিয়ন:</span><span class="result-value" id="resUnion">-</span></div>
 
             <div id="cardPagination" class="card-pagination">
                 <button class="btn-page" id="prevBtn" onclick="changeCard(-1)">← আগে</button>
@@ -666,14 +772,12 @@
     </div>
 
     <!-- ফুটার -->
-    <div class="app-footer">
-        <button class="btn-download" onclick="downloadExcel()">
-            📥 Excel ডাউনলোড
-        </button>
+    <div class="app-footer admin-only">
+        <button class="btn-download" onclick="downloadExcel()">📥 Excel ডাউনলোড</button>
     </div>
 </div>
 
-<!-- এন্ট্রি ফর্ম মডাল -->
+<!-- নতুন এন্ট্রি ফর্ম মডাল -->
 <div id="entryModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -681,67 +785,20 @@
             <button class="close-modal" onclick="closeEntryForm()">✕</button>
         </div>
         <div class="modal-body">
-            <div class="form-group">
-                <label>কাড নম্বর *</label>
-                <input type="text" id="entryCardNo" placeholder="যেমন: SHC-2024-001" required>
-            </div>
-            <div class="form-group">
-                <label>নাম *</label>
-                <input type="text" id="entryName" placeholder="নাম লিখুন" required>
-            </div>
-            <div class="form-group">
-                <label>পিতার নাম</label>
-                <input type="text" id="entryFatherName" placeholder="পিতার নাম">
-            </div>
-            <div class="form-group">
-                <label>মাতার নাম</label>
-                <input type="text" id="entryMotherName" placeholder="মাতার নাম">
-            </div>
-            <div class="form-group">
-                <label>জাতীয় পরিচয়পত্র (NID) *</label>
-                <input type="number" id="entryNID" placeholder="NID নম্বর" required>
-            </div>
-            <div class="form-group">
-                <label>মোবাইল নম্বর</label>
-                <input type="tel" id="entryMobile" placeholder="01712345678">
-            </div>
-            <div class="form-group">
-                <label>গ্রাম</label>
-                <input type="text" id="entryVillage" placeholder="গ্রামের নাম">
-            </div>
-            <div class="form-group">
-                <label>ব্লক</label>
-                <input type="text" id="entryBlock" placeholder="ব্লকের নাম">
-            </div>
-            <div class="form-group">
-                <label>ওয়ার্ড নম্বর</label>
-                <input type="text" id="entryWard" placeholder="ওয়ার্ড নম্বর">
-            </div>
-            <div class="form-group">
-                <label>মৌজা</label>
-                <input type="text" id="entryMouza" placeholder="মৌজার নাম">
-            </div>
-            <div class="form-group">
-                <label>ইউনিয়ন</label>
-                <input type="text" id="entryUnion" placeholder="ইউনিয়নের নাম">
-            </div>
-            <div class="form-group">
-                <label>জমির পরিমাণ (মোট)</label>
-                <input type="text" id="entryLand" placeholder="যেমন: 2 বিঘা">
-            </div>
-            <div class="form-group">
-                <label>নিজস্ব জমি</label>
-                <input type="text" id="entryOwnLand" placeholder="নিজস্ব জমির পরিমাণ">
-            </div>
-            <div class="form-group">
-                <label>বর্গা জমি</label>
-                <input type="text" id="entryRentLand" placeholder="বর্গা জমির পরিমাণ">
-            </div>
-            <div class="form-group">
-                <label>ছবি আপলোড (ঐচ্ছিক)</label>
-                <input type="file" id="entryPhotos" accept="image/*" multiple onchange="previewEntryPhotos()">
-                <div class="image-preview" id="photoPreview"></div>
-            </div>
+            <div class="form-group"><label>কার্ড নম্বর *</label><input type="text" id="entryCardNo" placeholder="যেমন: SHC-2024-001" required></div>
+            <div class="form-group"><label>নাম *</label><input type="text" id="entryName" placeholder="নাম লিখুন" required></div>
+            <div class="form-group"><label>পিতার নাম</label><input type="text" id="entryFatherName" placeholder="পিতার নাম"></div>
+            <div class="form-group"><label>মাতার নাম</label><input type="text" id="entryMotherName" placeholder="মাতার নাম"></div>
+            <div class="form-group"><label>জাতীয় পরিচয়পত্র (NID) *</label><input type="text" id="entryNID" placeholder="NID নম্বর" required></div>
+            <div class="form-group"><label>মোবাইল নম্বর</label><input type="tel" id="entryMobile" placeholder="01712345678"></div>
+            <div class="form-group"><label>গ্রাম</label><input type="text" id="entryVillage" placeholder="গ্রামের নাম"></div>
+            <div class="form-group"><label>ব্লক</label><input type="text" id="entryBlock" placeholder="ব্লকের নাম"></div>
+            <div class="form-group"><label>ওয়ার্ড নম্বর</label><input type="text" id="entryWard" placeholder="ওয়ার্ড নম্বর"></div>
+            <div class="form-group"><label>মৌজা</label><input type="text" id="entryMouza" placeholder="মৌজার নাম"></div>
+            <div class="form-group"><label>ইউনিয়ন</label><input type="text" id="entryUnion" placeholder="ইউনিয়নের নাম"></div>
+            <div class="form-group"><label>জমির পরিমাণ (মোট)</label><input type="text" id="entryLand" placeholder="যেমন: 2 বিঘা"></div>
+            <div class="form-group"><label>নিজস্ব জমি</label><input type="text" id="entryOwnLand" placeholder="নিজস্ব জমির পরিমাণ"></div>
+            <div class="form-group"><label>বর্গা জমি</label><input type="text" id="entryRentLand" placeholder="বর্গা জমির পরিমাণ"></div>
         </div>
         <div class="modal-footer">
             <button class="btn-cancel-entry" onclick="closeEntryForm()">বাতিল</button>
@@ -750,66 +807,279 @@
     </div>
 </div>
 
+<!-- অ্যাডমিন ইউজার ম্যানেজমেন্ট মডাল -->
+<div id="approvalModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>ইউজার ও অ্যাক্টিভেশন ম্যানেজমেন্ট</h2>
+            <button class="close-modal" onclick="closeApprovalModal()">✕</button>
+        </div>
+        <div class="modal-body" id="approvalListContainer"></div>
+    </div>
+</div>
+
 <script>
+    // 🔥 ১. ফায়ারবেস রিয়েলটাইম ডাটাবেজ কনফিগারেশন
+    // ⚠️ আপনার Firebase Realtime Database থেকে পাওয়া URL-টি নিচের ব্র্যাকেটের মধ্যে বসান:
+    const firebaseConfig = {
+        databaseURL: "https://your-app-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     // গ্লোবাল ভেরিয়েবল
     let rawSheetData = [];
     let matchedResults = [];
     let currentCardIndex = 0;
-    let uploadedImages = [];
-    const dbName = "SoilHealthCardDB";
-    const dbVersion = 1;
-    const storeName = "cardData";
+    let currentUser = null;
+    let registeredUsers = [];
 
-    // IndexedDB ইনিশিয়ালাইজ করা
-    function openDB() {
-        return new Promise((resolve, reject) => {
-            const req = indexedDB.open(dbName, dbVersion);
-            req.onerror = () => reject(req.error);
-            req.onsuccess = () => resolve(req.result);
-            req.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                if (!db.objectStoreNames.contains(storeName)) {
-                    db.createObjectStore(storeName, { keyPath: "id", autoIncrement: true });
-                }
-            };
+    const defaultAdmin = {
+        userId: "25800",
+        password: "Land@123",
+        name: "Main Admin",
+        role: "admin",
+        status: "approved"
+    };
+
+    // ফায়ারবেস থেকে ইউজার ডাটা রিয়েলটাইম সিঙ্ক
+    function listenToUsers() {
+        db.ref('appUsers').on('value', (snapshot) => {
+            const data = snapshot.val();
+            registeredUsers = [];
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    registeredUsers.push(data[key]);
+                });
+            }
+            if (!registeredUsers.some(u => u.userId === defaultAdmin.userId)) {
+                db.ref('appUsers/' + defaultAdmin.userId).set(defaultAdmin);
+            }
+            updatePendingBadge();
         });
     }
 
-    // ডাটা সেভ করা
-    async function saveToStorage(dataArray) {
-        try {
-            const db = await openDB();
-            const tx = db.transaction(storeName, "readwrite");
-            const store = tx.objectStore(storeName);
-            dataArray.forEach(item => store.add(item));
-            return new Promise((resolve) => { tx.oncomplete = () => resolve(); });
-        } catch (e) {
-            console.error("ডাটা সেভ করতে ত্রুটি:", e);
+    // ফায়ারবেস থেকে কার্ড ডাটা রিয়েলটাইম সিঙ্ক
+    function listenToCardData() {
+        document.getElementById('syncStatus').innerText = "অনলাইন ডাটা লোড হচ্ছে...";
+        db.ref('cardData').on('value', (snapshot) => {
+            const data = snapshot.val();
+            rawSheetData = [];
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    rawSheetData.push(data[key]);
+                });
+            }
+            updateDataCount();
+            document.getElementById('syncStatus').innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
+        });
+    }
+
+    function switchAuthTab(tab) {
+        const tabs = document.querySelectorAll('.auth-tab-btn');
+        tabs.forEach(t => t.classList.remove('active'));
+        document.getElementById('loginForm').classList.remove('active');
+        document.getElementById('registerForm').classList.remove('active');
+
+        if (tab === 'login') {
+            tabs[0].classList.add('active');
+            document.getElementById('loginForm').classList.add('active');
+        } else {
+            tabs[1].classList.add('active');
+            document.getElementById('registerForm').classList.add('active');
         }
+    }
+
+    function handleLogin() {
+        const userId = document.getElementById('loginUserId').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
+
+        if (!userId || !password) {
+            alert('❌ ইউজার আইডি এবং পাসওয়ার্ড লিখুন!');
+            return;
+        }
+
+        const user = registeredUsers.find(u => u.userId === userId && u.password === password);
+
+        if (!user) {
+            alert('❌ ভুল ইউজার আইডি বা পাসওয়ার্ড!');
+            return;
+        }
+
+        if (user.status !== 'approved') {
+            alert('⏳ আপনার একাউন্টটি এখনো অ্যাডমিন দ্বারা অ্যাপ্রুভ করা হয়নি!');
+            return;
+        }
+
+        currentUser = user;
+        document.getElementById('authContainer').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'flex';
+        document.getElementById('currentUserDisplay').innerText = `ইউজার: ${user.name} (${user.role === 'admin' ? 'অ্যাডমিন' : 'সাধারণ ইউজার'})`;
+
+        const adminElements = document.querySelectorAll('.admin-only');
+        if (user.role === 'admin') {
+            adminElements.forEach(el => el.style.display = 'block');
+            updatePendingBadge();
+        } else {
+            adminElements.forEach(el => el.style.display = 'none');
+        }
+    }
+
+    function handleRegister() {
+        const name = document.getElementById('regName').value.trim();
+        const userId = document.getElementById('regUserId').value.trim();
+        const password = document.getElementById('regPassword').value.trim();
+
+        if (!name || !userId || !password) {
+            alert('❌ সব ঘর পূরণ করুন!');
+            return;
+        }
+
+        if (registeredUsers.some(u => u.userId === userId)) {
+            alert('❌ এই ইউজার আইডি ইতিমধ্যে ব্যবহার করা হয়েছে!');
+            return;
+        }
+
+        const newUser = {
+            name: name,
+            userId: userId,
+            password: password,
+            role: "user",
+            status: "pending"
+        };
+
+        db.ref('appUsers/' + userId).set(newUser).then(() => {
+            alert('✅ রেজিস্ট্রেশন সফল হয়েছে! অ্যাডমিন অ্যাপ্রুভ করলে যেকোনো ডিভাইস থেকে লগইন করতে পারবেন।');
+            switchAuthTab('login');
+        });
+    }
+
+    function handleLogout() {
+        currentUser = null;
+        document.getElementById('loginUserId').value = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('appContainer').style.display = 'none';
+        document.getElementById('authContainer').style.display = 'block';
+    }
+
+    function updatePendingBadge() {
+        const pending = registeredUsers.filter(u => u.status === 'pending');
+        document.getElementById('pendingCount').innerText = pending.length;
+    }
+
+    function openApprovalModal() {
+        const pendingUsers = registeredUsers.filter(u => u.status === 'pending');
+        const activeUsers = registeredUsers.filter(u => u.status === 'approved');
+        const listContainer = document.getElementById('approvalListContainer');
+        listContainer.innerHTML = '';
+
+        const pendingTitle = document.createElement('div');
+        pendingTitle.className = 'section-title';
+        pendingTitle.innerText = `⏳ নতুন রেজিস্ট্রেশন রিকোয়েস্ট (${pendingUsers.length})`;
+        listContainer.appendChild(pendingTitle);
+
+        if (pendingUsers.length === 0) {
+            listContainer.innerHTML += '<p style="font-size:12px; color:#666; margin-bottom:12px;">কোনো প্যান্ডিং আবেদন নেই।</p>';
+        } else {
+            pendingUsers.forEach(u => {
+                const item = document.createElement('div');
+                item.className = 'user-card';
+                item.innerHTML = `
+                    <div class="user-card-header">
+                        <strong>${u.name}</strong>
+                        <div>
+                            <button class="btn-approve" onclick="approveUser('${u.userId}')">Approve</button>
+                            <button class="btn-reject" onclick="rejectUser('${u.userId}')">Reject</button>
+                        </div>
+                    </div>
+                    <div class="user-card-details">
+                        <b>User ID:</b> ${u.userId} | <b>Password:</b> ${u.password}
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        const activeTitle = document.createElement('div');
+        activeTitle.className = 'section-title';
+        activeTitle.innerText = `✅ সক্রিয় ইউজার তালিকা (${activeUsers.length} জন)`;
+        listContainer.appendChild(activeTitle);
+
+        activeUsers.forEach(u => {
+            const item = document.createElement('div');
+            item.className = 'user-card';
+            item.innerHTML = `
+                <div class="user-card-header">
+                    <strong>${u.name} ${u.role === 'admin' ? '(👑 Admin)' : ''}</strong>
+                    ${u.role !== 'admin' ? `<button class="btn-reject" onclick="deleteUser('${u.userId}')">মুছে ফেলুন</button>` : ''}
+                </div>
+                <div class="user-card-details">
+                    🔑 <b>User ID:</b> ${u.userId} &nbsp;|&nbsp; 🔒 <b>Password:</b> ${u.password}
+                </div>
+            `;
+            listContainer.appendChild(item);
+        });
+
+        document.getElementById('approvalModal').style.display = 'block';
+    }
+
+    function closeApprovalModal() {
+        document.getElementById('approvalModal').style.display = 'none';
+    }
+
+    function approveUser(userId) {
+        db.ref('appUsers/' + userId + '/status').set('approved').then(() => {
+            alert(`✅ আবেদন অ্যাপ্রুভ করা হয়েছে!`);
+            openApprovalModal();
+        });
+    }
+
+    function rejectUser(userId) {
+        db.ref('appUsers/' + userId).remove().then(() => {
+            alert('❌ আবেদনটি বাতিল করা হয়েছে!');
+            openApprovalModal();
+        });
+    }
+
+    function deleteUser(userId) {
+        if (confirm('আপনি কি এই ইউজারকে মুছে ফেলতে চান?')) {
+            db.ref('appUsers/' + userId).remove().then(() => {
+                alert('✅ ইউজার মুছে ফেলা হয়েছে!');
+                openApprovalModal();
+            });
+        }
+    }
+
+    function banglaToEnglishDigits(str) {
+        if (!str) return '';
+        const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+        return String(str).replace(/[০-৯]/g, d => banglaDigits.indexOf(d));
     }
 
     function updateDataCount() {
         document.getElementById('totalRecordCount').innerText = rawSheetData.length;
     }
 
-    async function clearStoredData() {
-        if (confirm('সব তথ্য মুছে ফেলতে চান?')) {
-            const db = await openDB();
-            const tx = db.transaction(storeName, "readwrite");
-            const store = tx.objectStore(storeName);
-            store.clear();
-            tx.oncomplete = () => {
-                rawSheetData = [];
-                updateDataCount();
-                document.getElementById('resultCard').style.display = 'none';
-                document.getElementById('noDataMsg').style.display = 'none';
-                alert('✅ সব তথ্য মুছা হয়েছে!');
-            };
+    function clearStoredData() {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন ডাটা মুছতে পারবেন!");
+            return;
+        }
+
+        if (confirm('সব ডাটা অনলাইন থেকে মুছে ফেলতে চান? এতে কোনো ইউজারই আর ডাটা দেখতে পাবে না।')) {
+            db.ref('cardData').remove().then(() => {
+                alert('✅ অনলাইন থেকে সব ডাটা মুছে ফেলা হয়েছে!');
+            });
         }
     }
 
-    // ফাইল আপলোড হ্যান্ডল করা
     async function handleFileUpload(event) {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন এক্সেল ফাইল আপলোড করতে পারবেন!");
+            return;
+        }
+
         const files = event.target.files;
         if (!files || files.length === 0) return;
 
@@ -836,7 +1106,10 @@
                             }
                         });
 
-                        if (rows[i].some(cell => String(cell).includes("জাতীয় পরিচয়পত্র") || String(cell).includes("NID"))) {
+                        if (rows[i].some(cell => {
+                            let str = String(cell || '');
+                            return str.includes("জাতীয় পরিচয়পত্র") || str.includes("NID") || str.includes("কার্ড") || str.includes("কাড");
+                        })) {
                             headerIndex = i;
                             break;
                         }
@@ -864,25 +1137,31 @@
             });
         }
 
-        rawSheetData = rawSheetData.concat(newlyAddedData);
-        await saveToStorage(newlyAddedData);
+        document.getElementById('syncStatus').innerText = "অনলাইনে ডাটা আপলোড হচ্ছে...";
+        const updates = {};
+        newlyAddedData.forEach(item => {
+            const newKey = db.ref().child('cardData').push().key;
+            updates['/cardData/' + newKey] = item;
+        });
 
-        alert(`✅ ${files.length} টি ফাইল যুক্ত হয়েছে! (মোট: ${rawSheetData.length} টি)`);
+        db.ref().update(updates).then(() => {
+            alert(`✅ ${files.length} টি ফাইল সফলভাবে অনলাইনে আপলোড হয়েছে! এখন যেকোনো ডিভাইস থেকে সবাই দেখতে পাবে।`);
+        });
     }
 
-    // সার্চ ট্যাব সুইচ করা
     function switchSearchTab(tab) {
         const tabBtns = document.querySelectorAll('.search-tab-btn');
         tabBtns.forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-
+        
         const nidGroup = document.getElementById('nidSearchGroup');
         const cardGroup = document.getElementById('cardSearchGroup');
         
         if (tab === 'nid') {
+            tabBtns[0].classList.add('active');
             nidGroup.classList.add('active');
             cardGroup.classList.remove('active');
         } else {
+            tabBtns[1].classList.add('active');
             cardGroup.classList.add('active');
             nidGroup.classList.remove('active');
         }
@@ -892,19 +1171,16 @@
         document.getElementById('duplicateAlert').style.display = 'none';
     }
 
-    // NID দিয়ে সার্চ
     function searchByNID() {
         const searchVal = document.getElementById('nidInput').value.trim();
-        performSearch(searchVal, ['জাতীয় পরিচয়পত্র', 'জাতীয় পরিচয়পত্র নম্বর', 'NID']);
+        performSearch(searchVal, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
     }
 
-    // কাড নম্বর দিয়ে সার্চ
     function searchByCard() {
         const searchVal = document.getElementById('cardInput').value.trim();
-        performSearch(searchVal, ['কাড নং', 'কাড', 'কার্ড নং']);
+        performSearch(searchVal, ['কাড', 'কার্ড', 'card', 'ক্রমিক']);
     }
 
-    // সার্চ পারফর্ম করা
     function performSearch(searchVal, fieldsToSearch) {
         const resultCard = document.getElementById('resultCard');
         const noDataMsg = document.getElementById('noDataMsg');
@@ -915,10 +1191,18 @@
             return;
         }
 
+        const normalizedSearchVal = banglaToEnglishDigits(searchVal).replace(/[\s\-_]/g, '').toLowerCase();
+
         matchedResults = rawSheetData.filter(item => {
             return Object.keys(item).some(key => {
-                return fieldsToSearch.some(field => key.includes(field)) && 
-                       String(item[key]).replace(/\s+/g, '').toUpperCase() === searchVal.toUpperCase();
+                const normalizedKey = key.toLowerCase();
+                const isMatchingKey = fieldsToSearch.some(field => normalizedKey.includes(field.toLowerCase()));
+
+                if (isMatchingKey && item[key] !== undefined && item[key] !== null && String(item[key]).trim() !== "") {
+                    const itemVal = banglaToEnglishDigits(item[key]).replace(/[\s\-_]/g, '').toLowerCase();
+                    return itemVal === normalizedSearchVal || itemVal.includes(normalizedSearchVal);
+                }
+                return false;
             });
         });
 
@@ -942,17 +1226,26 @@
         }
     }
 
-    // কার্ড রেন্ডার করা
+    function getFieldValue(item, keys) {
+        for (let k of Object.keys(item)) {
+            if (keys.some(key => k.toLowerCase().includes(key.toLowerCase()))) {
+                if (item[k]) return item[k];
+            }
+        }
+        return "-";
+    }
+
     function renderCard() {
         const item = matchedResults[currentCardIndex];
         const isDuplicate = matchedResults.length > 1;
 
-        document.getElementById('resCardNo').innerText = item["কাড নং"] || item["কার্ড নং"] || "-";
-        document.getElementById('resName').innerText = item["নাম"] || "-";
+        document.getElementById('resCardNo').innerText = getFieldValue(item, ['কাড', 'কার্ড', 'card', 'ক্রমিক']);
+        document.getElementById('resName').innerText = getFieldValue(item, ['নাম', 'name']);
         
         const nidElem = document.getElementById('resNidVal');
-        const nidVal = item["জাতীয় পরিচয়পত্র"] || item["জাতীয় পরিচয়পত্র নম্বর"] || item["NID"] || "-";
+        const nidVal = getFieldValue(item, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
         nidElem.innerText = nidVal;
+
         if(isDuplicate) {
             nidElem.style.color = 'var(--danger-red)';
             nidElem.style.fontWeight = 'bold';
@@ -961,15 +1254,15 @@
             nidElem.style.fontWeight = 'normal';
         }
 
-        document.getElementById('resFather').innerText = item["পিতার নাম"] || "-";
-        document.getElementById('resMother').innerText = item["মাতার নাম"] || "-";
-        document.getElementById('resBlock').innerText = item["ব্লক"] || item["ব্লকের নাম"] || "-";
-        document.getElementById('resVillage').innerText = item["গ্রাম"] || "-";
-        document.getElementById('resWard').innerText = item["ওয়ার্ড নম্বর"] || item["ওয়ার্ড নং"] || "-";
-        document.getElementById('resMouza').innerText = item["মৌজা"] || item["মৌজা নম্বর"] || "-";
-        document.getElementById('resLand').innerText = item["জমির পরিমাণ"] || item["মোট"] || "-";
-        document.getElementById('resMobile').innerText = item["মোবাইল নং"] || "-";
-        document.getElementById('resUnion').innerText = item["ইউনিয়ন"] || "-";
+        document.getElementById('resFather').innerText = getFieldValue(item, ['পিতা', 'father']);
+        document.getElementById('resMother').innerText = getFieldValue(item, ['মাতা', 'mother']);
+        document.getElementById('resBlock').innerText = getFieldValue(item, ['ব্লক', 'block']);
+        document.getElementById('resVillage').innerText = getFieldValue(item, ['গ্রাম', 'village']);
+        document.getElementById('resWard').innerText = getFieldValue(item, ['ওয়ার্ড', 'ward']);
+        document.getElementById('resMouza').innerText = getFieldValue(item, ['মৌজা', 'mouza']);
+        document.getElementById('resLand').innerText = getFieldValue(item, ['জমির পরিমাণ', 'মোট', 'land']);
+        document.getElementById('resMobile').innerText = getFieldValue(item, ['মোবাইল', 'mobile', 'phone']);
+        document.getElementById('resUnion').innerText = getFieldValue(item, ['ইউনিয়ন', 'union']);
 
         const pagElem = document.getElementById('cardPagination');
         if (isDuplicate) {
@@ -982,7 +1275,6 @@
         }
     }
 
-    // কার্ড নেভিগেট করা
     function changeCard(dir) {
         currentCardIndex += dir;
         if (currentCardIndex < 0) currentCardIndex = 0;
@@ -990,20 +1282,19 @@
         renderCard();
     }
 
-    // এন্ট্রি ফর্ম খুলা
     function openEntryForm() {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন নতুন ডাটা যুক্ত করতে পারবেন!");
+            return;
+        }
         document.getElementById('entryModal').style.display = 'block';
-        document.body.style.overflow = 'hidden';
     }
 
-    // এন্ট্রি ফর্ম বন্ধ করা
     function closeEntryForm() {
         document.getElementById('entryModal').style.display = 'none';
-        document.body.style.overflow = 'auto';
         clearEntryForm();
     }
 
-    // এন্ট্রি ফর্ম ক্লিয়ার করা
     function clearEntryForm() {
         document.getElementById('entryCardNo').value = '';
         document.getElementById('entryName').value = '';
@@ -1019,81 +1310,49 @@
         document.getElementById('entryLand').value = '';
         document.getElementById('entryOwnLand').value = '';
         document.getElementById('entryRentLand').value = '';
-        document.getElementById('entryPhotos').value = '';
-        document.getElementById('photoPreview').innerHTML = '';
-        uploadedImages = [];
     }
 
-    // ছবি প্রিভিউ দেখান
-    function previewEntryPhotos() {
-        const files = document.getElementById('entryPhotos').files;
-        const preview = document.getElementById('photoPreview');
-        preview.innerHTML = '';
-        uploadedImages = [];
-
-        for (let file of files) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                uploadedImages.push(e.target.result);
-                const img = document.createElement('img');
-                img.src = e.target.result;
-                img.title = 'ক্লিক করে রিমুভ করুন';
-                img.onclick = function() {
-                    uploadedImages = uploadedImages.filter(img2 => img2 !== e.target.result);
-                    previewEntryPhotos();
-                };
-                preview.appendChild(img);
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-
-    // নতুন এন্ট্রি সেভ করা
     function saveNewEntry() {
         const cardNo = document.getElementById('entryCardNo').value.trim();
         const name = document.getElementById('entryName').value.trim();
         const nid = document.getElementById('entryNID').value.trim();
 
         if (!cardNo || !name || !nid) {
-            alert('❌ কাড নম্বর, নাম এবং NID বাধ্যতামূলক!');
+            alert('❌ কার্ড নম্বর, নাম এবং NID বাধ্যতামূলক!');
             return;
         }
 
         const newEntry = {
-            "কাড নং": cardNo,
+            "কার্ড নম্বর": cardNo,
             "নাম": name,
             "পিতার নাম": document.getElementById('entryFatherName').value.trim() || "-",
             "মাতার নাম": document.getElementById('entryMotherName').value.trim() || "-",
             "জাতীয় পরিচয়পত্র নম্বর": nid,
-            "জাতীয় পরিচয়পত্র": nid,
             "মোবাইল নং": document.getElementById('entryMobile').value.trim() || "-",
             "গ্রাম": document.getElementById('entryVillage').value.trim() || "-",
             "ব্লক": document.getElementById('entryBlock').value.trim() || "-",
-            "ব্লকের নাম": document.getElementById('entryBlock').value.trim() || "-",
             "ওয়ার্ড নম্বর": document.getElementById('entryWard').value.trim() || "-",
-            "ওয়ার্ড": document.getElementById('entryWard').value.trim() || "-",
             "মৌজা": document.getElementById('entryMouza').value.trim() || "-",
-            "মৌজা নম্বর": document.getElementById('entryMouza').value.trim() || "-",
             "ইউনিয়ন": document.getElementById('entryUnion').value.trim() || "-",
             "জমির পরিমাণ": document.getElementById('entryLand').value.trim() || "-",
-            "মোট": document.getElementById('entryLand').value.trim() || "-",
             "নিজস্ব": document.getElementById('entryOwnLand').value.trim() || "-",
-            "বর্গা": document.getElementById('entryRentLand').value.trim() || "-",
-            "ছবি_সংখ্যা": uploadedImages.length
+            "বর্গা": document.getElementById('entryRentLand').value.trim() || "-"
         };
 
-        rawSheetData.push(newEntry);
-        saveToStorage([newEntry]).then(() => {
-            updateDataCount();
-            alert(`✅ নতুন তথ্য সফলভাবে সেভ হয়েছে!\n(মোট: ${rawSheetData.length} টি এন্ট্রি)`);
+        db.ref('cardData').push(newEntry).then(() => {
+            alert(`✅ নতুন তথ্য অনলাইন ডাটাবেজে সেভ হয়েছে!`);
             closeEntryForm();
         });
     }
 
-    // এক্সেল ডাউনলোড করা
     function downloadExcel() {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন ডাটা ডাউনলোড করতে পারবেন!");
+            return;
+        }
+
         if (!rawSheetData || rawSheetData.length === 0) {
-            alert('❌ ডাউনলোড করার কোনো তথ্য নেই!');
+            alert('❌ ডাউনলোড করার মতো কোনো তথ্য নেই!');
             return;
         }
 
@@ -1101,35 +1360,12 @@
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Soil_Health_Card");
         XLSX.writeFile(workbook, "মাটির_স্বাস্থ্য_সুরক্ষা_কার্ড.xlsx");
-        alert('✅ Excel ডাউনলোড শুরু হয়েছে!');
     }
 
-    // ডাটা লোড করা
-    window.addEventListener('load', async () => {
-        await loadStoredData();
-
-        const modal = document.getElementById('entryModal');
-        window.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                closeEntryForm();
-            }
-        });
+    window.addEventListener('load', () => {
+        listenToUsers();
+        listenToCardData();
     });
-
-    async function loadStoredData() {
-        try {
-            const db = await openDB();
-            const tx = db.transaction(storeName, "readonly");
-            const store = tx.objectStore(storeName);
-            const req = store.getAll();
-            req.onsuccess = () => {
-                rawSheetData = req.result || [];
-                updateDataCount();
-            };
-        } catch (e) {
-            console.error("ডাটা লোডে ত্রুটি:", e);
-        }
-    }
 </script>
 
 </body>
