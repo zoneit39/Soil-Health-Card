@@ -905,13 +905,16 @@
 </div>
 
 <script>
-    // 🔥 ১. ফায়ারবেস রিয়েলটাইম ডাটাবেজ কনফিগারেশন (✅ ঠিক করা হয়েছে - US Central location)
-    // ⚠️ নোট: এখানে শুধু databaseURL দেওয়া আছে। যদি Firebase Console → Realtime Database →
-    // Rules ঠিকঠাক খোলা (".read": true, ".write": true) থাকা সত্ত্বেও ডাটা সেভ/লোড না হয়,
-    // তাহলে Firebase Console → Project settings → General → "Your apps" থেকে সম্পূর্ণ
-    // firebaseConfig (apiKey, projectId, appId ইত্যাদিসহ) কপি করে এখানে বসান।
+    // 🔥 Firebase Configuration (সম্পূর্ণ কনফিগারেশন)
     const firebaseConfig = {
-        databaseURL: "https://soilcardapp-default-rtdb.firebaseio.com"
+        apiKey: "AIzaSyAw2ANLFVNmW6MR5n3CD5eanHomXA_RkSU",
+        authDomain: "soilcardapp.firebaseapp.com",
+        databaseURL: "https://soilcardapp-default-rtdb.firebaseio.com",
+        projectId: "soilcardapp",
+        storageBucket: "soilcardapp.firebasestorage.app",
+        messagingSenderId: "696003841849",
+        appId: "1:696003841849:web:a050ab2b746dc111f862e8",
+        measurementId: "G-5WDYR1F5SR"
     };
 
     firebase.initializeApp(firebaseConfig);
@@ -968,7 +971,7 @@
     // Firebase থেকে ইউজার লিস্ট সিঙ্ক হওয়ার পর সেভ করা সেশন এখনও বৈধ কিনা যাচাই করে
     function revalidateSession() {
         if (!currentUser) return;
-        if (currentUser.userId === defaultAdmin.userId) return; // ডিফল্ট অ্যাডমিন সবসময় বৈধ
+        if (currentUser.userId === defaultAdmin.userId) return;
 
         const freshUser = registeredUsers.find(u => u.userId === currentUser.userId);
         if (!freshUser || freshUser.status !== 'approved') {
@@ -976,7 +979,6 @@
             handleLogout();
             return;
         }
-        // রোল/স্ট্যাটাস পরিবর্তিত হলে UI ও সেশন আপডেট রাখা হচ্ছে
         saveSession(freshUser);
         applyLoggedInUI(freshUser);
     }
@@ -1011,7 +1013,6 @@
             updatePendingBadge();
             revalidateSession();
         }, (error) => {
-            // এই কলব্যাক তখনই চলে যখন Firebase read পারমিশন সমস্যা বা কানেকশন সমস্যা হয়
             usersSynced = false;
             usersSyncError = error.message || String(error);
             console.error('Firebase appUsers sync error:', error);
@@ -1032,7 +1033,7 @@
     }
 
     // ফায়ারবেস থেকে কার্ড ডাটা রিয়েলটাইম সিঙ্ক
-    let cardDataReadErrorShown = false; // একবারই এলার্ট দেখানোর জন্য
+    let cardDataReadErrorShown = false;
     function listenToCardData() {
         document.getElementById('syncStatus').innerText = "অনলাইন ডাটা লোড হচ্ছে...";
         db.ref('cardData').on('value', (snapshot) => {
@@ -1048,12 +1049,10 @@
             statusEl.innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয় (" + rawSheetData.length + " টি রেকর্ড)";
             statusEl.style.color = '';
         }, (error) => {
-            // Firebase read পারমিশন বা কানেকশন সমস্যা হলে এখানে আসবে
             const statusEl = document.getElementById('syncStatus');
             statusEl.innerText = "❌ ডাটাবেজ সংযোগ ব্যর্থ: " + (error.message || error);
             statusEl.style.color = 'var(--danger-red)';
             console.error('Firebase cardData sync error:', error);
-            // এই এররটাই সবচেয়ে বেশি "ডাটা হারিয়ে যাওয়া"-র কারণ, তাই স্পষ্ট করে একবার জানিয়ে দেওয়া হচ্ছে
             if (!cardDataReadErrorShown) {
                 cardDataReadErrorShown = true;
                 alert('⚠️ Firebase Realtime Database থেকে ডাটা পড়া যাচ্ছে না!\n\nকারণ: ' + (error.message || error) + '\n\nফলে আপলোড করা এক্সেলের ডাটা "সেভ" হলেও তা পরে দেখানো/ডাউনলোড করা যাচ্ছে না।\n\nসমাধান: Firebase Console → Realtime Database → Rules ট্যাবে গিয়ে অন্তত সাময়িকভাবে এভাবে সেট করুন:\n{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}\nতারপর Publish করুন।');
@@ -1085,8 +1084,6 @@
             return;
         }
 
-        // ডিফল্ট অ্যাডমিন সবসময় লগইন করতে পারবে, Firebase সিঙ্ক হোক বা না হোক —
-        // যাতে Firebase-এ সমস্যা হলেও অ্যাডমিন লগইন করে Rules/ডাটা ঠিক করতে পারে
         let user = null;
         if (userId === defaultAdmin.userId && password === defaultAdmin.password) {
             user = defaultAdmin;
@@ -1223,21 +1220,20 @@
     function openDataViewModal() {
         document.getElementById('dataViewModal').style.display = 'block';
         document.getElementById('dataViewCount').innerText = rawSheetData.length;
-        
+
         const tbody = document.getElementById('dataViewTableBody');
         tbody.innerHTML = '';
-        
+
         if (rawSheetData.length === 0) {
             tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:#999;">কোনো ডাটা নেই</td></tr>';
             return;
         }
-        
-        // প্রথম রেকর্ডের সব কলাম দেখা
+
         if (rawSheetData.length > 0) {
             console.log('📊 প্রথম রেকর্ডের সব কলাম:', Object.keys(rawSheetData[0]));
             console.log('📊 প্রথম রেকর্ডের ডাটা:', rawSheetData[0]);
         }
-        
+
         rawSheetData.forEach((item, index) => {
             const row = document.createElement('tr');
             const cardNo = getFieldValue(item, ['কাড নং', 'কাড', 'কার্ড', 'card', 'ক্রমিক']);
@@ -1250,20 +1246,20 @@
             const block = getFieldValue(item, ['ব্লক', 'block']);
             const ward = getFieldValue(item, ['ওয়ার্ড নং', 'ওয়ার্ড', 'ward']);
             const union = getFieldValue(item, ['ইউনিয়ন', 'union']);
-            
-            row.innerHTML = \`
-                <td>\${index + 1}</td>
-                <td>\${cardNo}</td>
-                <td>\${name}</td>
-                <td>\${nid}</td>
-                <td>\${father}</td>
-                <td>\${mother}</td>
-                <td>\${mobile}</td>
-                <td>\${village}</td>
-                <td>\${block}</td>
-                <td>\${ward}</td>
-                <td>\${union}</td>
-            \`;
+
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${cardNo}</td>
+                <td>${name}</td>
+                <td>${nid}</td>
+                <td>${father}</td>
+                <td>${mother}</td>
+                <td>${mobile}</td>
+                <td>${village}</td>
+                <td>${block}</td>
+                <td>${ward}</td>
+                <td>${union}</td>
+            `;
             tbody.appendChild(row);
         });
     }
@@ -1308,8 +1304,6 @@
         if (!str) return '';
         const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
         let result = String(str).replace(/[০-৯]/g, d => banglaDigits.indexOf(d));
-        // এক্সেল/সিএসভি থেকে আসা "1234567890.0" জাতীয় trailing .0 ঝামেলা দূর করা হচ্ছে,
-        // যাতে NID/মোবাইল নম্বর দিয়ে সার্চ করলে মিলে যায়
         result = result.replace(/\.0+$/, '');
         return result;
     }
@@ -1360,10 +1354,8 @@
                 let extractedWardName = "";
                 let headerIndex = -1;
 
-                // প্রথম 10 রো চেক করে ব্লক, ওয়ার্ড এবং হেডার খুঁজছি
                 for (let i = 0; i < Math.min(rows.length, 10); i++) {
                     if (rows[i] && rows[i].length > 0) {
-                        // ব্লক এবং ওয়ার্ড বের করা
                         const firstCell = String(rows[i][0] || '').trim();
                         if (firstCell.includes("ব্লক")) {
                             extractedBlockName = firstCell;
@@ -1372,10 +1364,9 @@
                             extractedWardName = firstCell;
                         }
 
-                        // হেডার রো চিনতে - যেখানে "নাম", "পিতার নাম" একসাথে আছে
                         const hasName = rows[i].some(c => String(c || '').trim() === "নাম");
                         const hasFatherName = rows[i].some(c => String(c || '').trim().includes("পিতার নাম"));
-                        
+
                         if (hasName && hasFatherName) {
                             headerIndex = i;
                             console.log(`✅ হেডার রো পাওয়া গেছে index ${i}`);
@@ -1386,19 +1377,15 @@
                 }
 
                 if (headerIndex !== -1) {
-                    // হেডার পড়া
                     const headers = rows[headerIndex].map(h => String(h || '').trim());
-                    
-                    // চেক করি পরের রোতে সাব-হেডার আছে কিনা
+
                     let dataStartRow = headerIndex + 1;
                     const nextRow = rows[headerIndex + 1];
-                    
+
                     if (nextRow) {
                         const nextRowText = nextRow.map(c => String(c || '').trim()).join('|');
-                        // যদি "নিজস্ব" বা "বর্গা" থাকে তাহলে এটা সাব-হেডার
                         if (nextRowText.includes('নিজস্ব') || nextRowText.includes('বর্গা')) {
                             console.log('সাব-হেডার পাওয়া গেছে');
-                            // সাব-হেডার মার্জ করা
                             headers.forEach((h, colIdx) => {
                                 const subVal = String(nextRow[colIdx] || '').trim();
                                 if ((!h || h === '') && subVal) {
@@ -1429,7 +1416,6 @@
                                 }
                             });
 
-                            // ব্লক এবং ওয়ার্ড যোগ করা
                             if (extractedBlockName && !rowObj["ব্লক"]) {
                                 rowObj["ব্লক"] = extractedBlockName;
                             }
@@ -1450,12 +1436,11 @@
             });
         }
 
-                // ফাইলের কোনো সারিতেই ডাটা না পাওয়া গেলে মিথ্যা "সফল" মেসেজ না দেখিয়ে সত্যিটা জানানো হচ্ছে
         if (newlyAddedData.length === 0) {
             document.getElementById('syncStatus').innerText = "❌ ফাইলে কোনো তথ্য পাওয়া যায়নি";
             document.getElementById('syncStatus').style.color = 'var(--danger-red)';
             alert('❌ এই ফাইল থেকে কোনো তথ্য পড়া যায়নি!\n\nসম্ভবত হেডার সারিতে "কার্ড", "কাড" বা "জাতীয় পরিচয়পত্র"/"NID" লেখা কোনো কলাম খুঁজে পাওয়া যায়নি, অথবা হেডারের নিচের সব সারি খালি।\n\nফাইলের ফরম্যাট চেক করুন।');
-            event.target.value = ''; // একই ফাইল আবার সিলেক্ট করা যাবে
+            event.target.value = '';
             return;
         }
 
@@ -1470,7 +1455,7 @@
             document.getElementById('syncStatus').innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
             document.getElementById('syncStatus').style.color = '';
             alert(`✅ ${newlyAddedData.length} টি রেকর্ড সফলভাবে অনলাইনে আপলোড হয়েছে! এখন যেকোনো ডিভাইস থেকে সবাই দেখতে পাবে।`);
-            event.target.value = ''; // একই ফাইল আবার সিলেক্ট করা যাবে (রিফ্রেশ ছাড়াই)
+            event.target.value = '';
         }).catch((error) => {
             const statusEl = document.getElementById('syncStatus');
             statusEl.innerText = "❌ আপলোড ব্যর্থ: " + (error.message || error);
@@ -1570,7 +1555,6 @@
     function getFieldValue(item, keys) {
         for (let k of Object.keys(item)) {
             if (keys.some(key => k.toLowerCase().includes(key.toLowerCase()))) {
-                // Check if value exists and is not empty/null/undefined
                 const val = item[k];
                 if (val !== undefined && val !== null && val !== '' && String(val).trim() !== '' && String(val).toLowerCase() !== 'nan') {
                     return String(val).trim();
@@ -1713,7 +1697,7 @@
     window.addEventListener('load', () => {
         const savedUser = loadSession();
         if (savedUser) {
-            applyLoggedInUI(savedUser); // রিলোডেও সাথে সাথে লগইন অবস্থা ফিরিয়ে আনা হচ্ছে
+            applyLoggedInUI(savedUser);
         }
         listenToUsers();
         listenToCardData();
