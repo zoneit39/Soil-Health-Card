@@ -1290,13 +1290,17 @@
                 item.innerHTML = `
                     <div class="user-card-header">
                         <strong>${u.name}</strong>
-                        <div>
-                            <button class="btn-approve" onclick="approveUser('${u.userId}')">Approve</button>
-                            <button class="btn-reject" onclick="rejectUser('${u.userId}')">Reject</button>
-                        </div>
                     </div>
                     <div class="user-card-details">
                         <b>User ID:</b> ${u.userId} | <b>Password:</b> ${u.password}
+                    </div>
+                    <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+                        <select id="role_${u.userId}" style="flex: 1; padding: 6px 10px; border: 1.5px solid #d1d5db; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                            <option value="user">👤 Viewer (শুধু দেখতে পারবে)</option>
+                            <option value="admin">👑 Admin (সব করতে পারবে)</option>
+                        </select>
+                        <button class="btn-approve" onclick="approveUserWithRole('${u.userId}')">Approve</button>
+                        <button class="btn-reject" onclick="rejectUser('${u.userId}')">Reject</button>
                     </div>
                 `;
                 listContainer.appendChild(item);
@@ -1387,6 +1391,28 @@
     function approveUser(userId) {
         db.ref('appUsers/' + userId + '/status').set('approved').then(() => {
             alert(`✅ আবেদন অ্যাপ্রুভ করা হয়েছে!`);
+            openApprovalModal();
+        }).catch((error) => {
+            console.error('Firebase approve error:', error);
+            alert('❌ অ্যাপ্রুভ ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
+        });
+    }
+
+    function approveUserWithRole(userId) {
+        const roleSelect = document.getElementById('role_' + userId);
+        if (!roleSelect) {
+            alert('❌ Role সিলেক্ট করা যায়নি!');
+            return;
+        }
+
+        const selectedRole = roleSelect.value; // 'admin' or 'user'
+
+        db.ref('appUsers/' + userId).update({
+            status: 'approved',
+            role: selectedRole
+        }).then(() => {
+            const roleName = selectedRole === 'admin' ? 'Admin (সব করতে পারবে)' : 'Viewer (শুধু দেখতে পারবে)';
+            alert(`✅ আবেদন অ্যাপ্রুভ করা হয়েছে!\n\nRole: ${roleName}`);
             openApprovalModal();
         }).catch((error) => {
             console.error('Firebase approve error:', error);
