@@ -891,6 +891,13 @@
             <div class="result-field"><span class="result-label">মোবাইল:</span><span class="result-value" id="resMobile">-</span></div>
             <div class="result-field"><span class="result-label">ইউনিয়ন:</span><span class="result-value" id="resUnion">-</span></div>
 
+            <!-- Edit Button (Admin Only) -->
+            <div style="margin-top: 15px; text-align: center;">
+                <button class="btn-edit-entry admin-only" onclick="openEditForm()" style="background: #f59e0b; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                    ✏️ তথ্য সংশোধন করুন
+                </button>
+            </div>
+
             <div id="cardPagination" class="card-pagination">
                 <button class="btn-page" id="prevBtn" onclick="changeCard(-1)">← আগে</button>
                 <span class="page-indicator" id="pageIndicator">১ / ১</span>
@@ -976,6 +983,36 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- তথ্য সংশোধন মডাল -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>✏️ তথ্য সংশোধন করুন</h2>
+            <button class="close-modal" onclick="closeEditForm()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group"><label>কার্ড নম্বর *</label><input type="text" id="editCardNo" required></div>
+            <div class="form-group"><label>নাম *</label><input type="text" id="editName" required></div>
+            <div class="form-group"><label>পিতার নাম</label><input type="text" id="editFatherName"></div>
+            <div class="form-group"><label>মাতার নাম</label><input type="text" id="editMotherName"></div>
+            <div class="form-group"><label>জাতীয় পরিচয়পত্র (NID) *</label><input type="text" id="editNID" required></div>
+            <div class="form-group"><label>মোবাইল নম্বর</label><input type="tel" id="editMobile"></div>
+            <div class="form-group"><label>গ্রাম</label><input type="text" id="editVillage"></div>
+            <div class="form-group"><label>ব্লক</label><input type="text" id="editBlock"></div>
+            <div class="form-group"><label>ওয়ার্ড নম্বর</label><input type="text" id="editWard"></div>
+            <div class="form-group"><label>মৌজা</label><input type="text" id="editMouza"></div>
+            <div class="form-group"><label>ইউনিয়ন</label><input type="text" id="editUnion"></div>
+            <div class="form-group"><label>জমির পরিমাণ (মোট)</label><input type="text" id="editLand"></div>
+            <div class="form-group"><label>নিজস্ব জমি</label><input type="text" id="editOwnLand"></div>
+            <div class="form-group"><label>বর্গা জমি</label><input type="text" id="editRentLand"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel-entry" onclick="closeEditForm()">বাতিল</button>
+            <button class="btn-save-entry" onclick="saveEditedEntry()">✅ সংশোধন সেভ করুন</button>
         </div>
     </div>
 </div>
@@ -1795,6 +1832,114 @@
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Soil_Health_Card");
         XLSX.writeFile(workbook, "মাটির_স্বাস্থ্য_সুরক্ষা_কার্ড.xlsx");
+    }
+
+    // Edit Entry Functions
+    let currentEditKey = null; // Firebase key of the item being edited
+
+    function openEditForm() {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন তথ্য সংশোধন করতে পারবেন!");
+            return;
+        }
+
+        const item = matchedResults[currentCardIndex];
+        if (!item) {
+            alert("❌ কোনো ডাটা নেই!");
+            return;
+        }
+
+        // Find the Firebase key for this item
+        db.ref('cardData').once('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                // Find matching item by NID
+                const nid = getFieldValue(item, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+                for (let key in data) {
+                    const itemNid = getFieldValue(data[key], ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+                    if (itemNid === nid) {
+                        currentEditKey = key;
+                        break;
+                    }
+                }
+            }
+        });
+
+        // Populate edit form with current values
+        let cardNo = getFieldValue(item, ['কাড', 'কার্ড', 'card', 'ক্রমিক']).replace(/\$/g, '');
+        document.getElementById('editCardNo').value = cardNo;
+        document.getElementById('editName').value = getFieldValue(item, ['নাম', 'name']);
+        document.getElementById('editFatherName').value = getFieldValue(item, ['পিতার নাম', 'পিতা', 'father']);
+        document.getElementById('editMotherName').value = getFieldValue(item, ['মাতার নাম', 'মাতা', 'mother']);
+        document.getElementById('editNID').value = getFieldValue(item, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+        document.getElementById('editMobile').value = getFieldValue(item, ['মোবাইল নং', 'মোবাইল', 'mobile', 'phone']);
+        document.getElementById('editVillage').value = getFieldValue(item, ['গ্রাম', 'village']);
+        document.getElementById('editBlock').value = getFieldValue(item, ['ব্লক', 'block']);
+        document.getElementById('editWard').value = getFieldValue(item, ['ওয়ার্ড নং', 'ওয়ার্ড', 'ward']);
+        document.getElementById('editMouza').value = getFieldValue(item, ['মৌজা', 'mouza']);
+        document.getElementById('editUnion').value = getFieldValue(item, ['ইউনিয়ন', 'union']);
+        document.getElementById('editLand').value = getFieldValue(item, ['জমির পরিমাণ', 'মোট', 'land']);
+        document.getElementById('editOwnLand').value = getFieldValue(item, ['নিজস্ব', 'own']);
+        document.getElementById('editRentLand').value = getFieldValue(item, ['বর্গা', 'rent']);
+
+        // Replace "-" with empty string for better editing
+        const inputs = document.querySelectorAll('#editModal input');
+        inputs.forEach(input => {
+            if (input.value === '-') input.value = '';
+        });
+
+        document.getElementById('editModal').style.display = 'block';
+    }
+
+    function closeEditForm() {
+        document.getElementById('editModal').style.display = 'none';
+        currentEditKey = null;
+    }
+
+    function saveEditedEntry() {
+        const cardNo = document.getElementById('editCardNo').value.trim();
+        const name = document.getElementById('editName').value.trim();
+        const nid = document.getElementById('editNID').value.trim();
+
+        if (!cardNo || !name || !nid) {
+            alert('❌ কার্ড নম্বর, নাম এবং NID বাধ্যতামূলক!');
+            return;
+        }
+
+        if (!currentEditKey) {
+            alert('❌ Error: কোনো রেকর্ড খুঁজে পাওয়া যায়নি!');
+            return;
+        }
+
+        const updatedEntry = {
+            "কার্ড নম্বর": cardNo,
+            "নাম": name,
+            "পিতার নাম": document.getElementById('editFatherName').value.trim() || "-",
+            "মাতার নাম": document.getElementById('editMotherName').value.trim() || "-",
+            "জাতীয় পরিচয়পত্র নম্বর": nid,
+            "মোবাইল নং": document.getElementById('editMobile').value.trim() || "-",
+            "গ্রাম": document.getElementById('editVillage').value.trim() || "-",
+            "ব্লক": document.getElementById('editBlock').value.trim() || "-",
+            "ওয়ার্ড নম্বর": document.getElementById('editWard').value.trim() || "-",
+            "মৌজা": document.getElementById('editMouza').value.trim() || "-",
+            "ইউনিয়ন": document.getElementById('editUnion').value.trim() || "-",
+            "জমির পরিমাণ": document.getElementById('editLand').value.trim() || "-",
+            "নিজস্ব": document.getElementById('editOwnLand').value.trim() || "-",
+            "বর্গা": document.getElementById('editRentLand').value.trim() || "-"
+        };
+
+        db.ref('cardData/' + currentEditKey).update(updatedEntry).then(() => {
+            alert(`✅ তথ্য সংশোধন সফলভাবে সেভ হয়েছে!`);
+            closeEditForm();
+            // Refresh the current view
+            setTimeout(() => {
+                const lastSearchedNID = nid;
+                performSearch(lastSearchedNID, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+            }, 500);
+        }).catch((error) => {
+            console.error('Firebase update error:', error);
+            alert('❌ সংশোধন ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Rules-এ write অনুমতি বন্ধ আছে।');
+        });
     }
 
     window.addEventListener('load', () => {
