@@ -93,22 +93,58 @@
 
         .app-container {
             width: 100%;
-            max-width: 450px;
             height: 100vh;
-            max-height: 920px;
             background: var(--card-bg);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             display: none;
             flex-direction: column;
             position: relative;
             overflow: hidden;
         }
 
-        @media (min-width: 480px) {
+        /* Mobile View (up to 768px) */
+        @media (max-width: 768px) {
             .app-container {
-                height: 92vh;
-                border-radius: 24px;
-                border: 4px solid #333;
+                max-width: 100%;
+            }
+        }
+
+        /* Desktop/Web View (769px and above) */
+        @media (min-width: 769px) {
+            body {
+                background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            }
+
+            .app-container {
+                max-width: 1400px;
+                height: auto;
+                min-height: 100vh;
+                margin: 0 auto;
+                box-shadow: 0 0 30px rgba(0,0,0,0.1);
+            }
+
+            .app-body {
+                padding: 30px 40px;
+            }
+
+            .toolbar {
+                padding: 15px 20px;
+            }
+
+            .search-card {
+                padding: 20px;
+                max-width: 800px;
+                margin: 0 auto 20px;
+            }
+
+            .result-card {
+                max-width: 800px;
+                margin: 0 auto 20px;
+                padding: 24px;
+            }
+
+            .status-bar {
+                max-width: 800px;
+                margin: 0 auto 20px;
             }
         }
 
@@ -545,14 +581,55 @@
             flex-direction: column;
         }
 
-        @media (min-width: 480px) {
+        /* Mobile View */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 100%;
+                height: 100%;
+            }
+        }
+
+        /* Desktop/Web View */
+        @media (min-width: 769px) {
             .modal-content {
                 margin: 5vh auto;
                 width: 90%;
-                max-width: 500px;
+                max-width: 700px;
                 height: auto;
                 border-radius: 16px;
                 max-height: 90vh;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            }
+
+            .modal-body {
+                padding: 30px 40px !important;
+            }
+
+            .form-group {
+                margin-bottom: 20px !important;
+            }
+
+            .form-group label {
+                font-size: 14px !important;
+                margin-bottom: 8px !important;
+            }
+
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 12px 15px !important;
+                font-size: 15px !important;
+                border-radius: 8px !important;
+            }
+
+            .modal-footer {
+                padding: 20px 40px !important;
+            }
+
+            .btn-save-entry,
+            .btn-cancel-entry {
+                padding: 14px 24px !important;
+                font-size: 15px !important;
             }
         }
 
@@ -802,12 +879,11 @@
 
         <!-- সার্চ রেজাল্ট -->
         <div id="resultCard" class="result-card">
-            <div class="result-field"><span class="result-label">কার্ড নং:</span><span class="result-value" id="resCardNo">-</span></div>
+            <div class="result-field"><span class="result-label">ব্লক:</span><span class="result-value" id="resBlock">-</span></div>
             <div class="result-field"><span class="result-label">নাম:</span><span class="result-value" id="resName">-</span></div>
             <div class="result-field"><span class="result-label">NID:</span><span class="result-value" id="resNidVal">-</span></div>
             <div class="result-field"><span class="result-label">পিতা:</span><span class="result-value" id="resFather">-</span></div>
             <div class="result-field"><span class="result-label">মাতা:</span><span class="result-value" id="resMother">-</span></div>
-            <div class="result-field"><span class="result-label">ব্লক:</span><span class="result-value" id="resBlock">-</span></div>
             <div class="result-field"><span class="result-label">গ্রাম:</span><span class="result-value" id="resVillage">-</span></div>
             <div class="result-field"><span class="result-label">ওয়ার্ড:</span><span class="result-value" id="resWard">-</span></div>
             <div class="result-field"><span class="result-label">মৌজা:</span><span class="result-value" id="resMouza">-</span></div>
@@ -1236,7 +1312,7 @@
 
         rawSheetData.forEach((item, index) => {
             const row = document.createElement('tr');
-            const cardNo = getFieldValue(item, ['কাড নং', 'কাড', 'কার্ড', 'card', 'ক্রমিক']);
+            let cardNo = getFieldValue(item, ['কাড নং', 'কাড', 'কার্ড', 'card', 'ক্রমিক']);
             const name = getFieldValue(item, ['নাম', 'name']);
             const nid = getFieldValue(item, ['NID', 'জাতীয় পরিচয়পত্র', 'পরিচয়পত্র']);
             const father = getFieldValue(item, ['পিতার নাম', 'পিতা', 'father']);
@@ -1246,6 +1322,9 @@
             const block = getFieldValue(item, ['ব্লক', 'block']);
             const ward = getFieldValue(item, ['ওয়ার্ড নং', 'ওয়ার্ড', 'ward']);
             const union = getFieldValue(item, ['ইউনিয়ন', 'union']);
+
+            // কার্ড নম্বর থেকে $ সাইন মুছে ফেলা
+            cardNo = cardNo.replace(/\$/g, '');
 
             row.innerHTML = `
                 <td>${index + 1}</td>
@@ -1408,7 +1487,13 @@
                             headers.forEach((h, colIdx) => {
                                 if (h && h !== '') {
                                     const cellValue = rows[i][colIdx];
-                                    const val = cellValue !== undefined && cellValue !== null ? String(cellValue).trim() : "";
+                                    let val = cellValue !== undefined && cellValue !== null ? String(cellValue).trim() : "";
+
+                                    // সব কলাম থেকে $ সাইন মুছে ফেলা
+                                    if (val) {
+                                        val = val.replace(/\$/g, '');
+                                    }
+
                                     rowObj[h] = val;
                                     if (val && val !== '' && val !== '-' && val.toLowerCase() !== 'nan') {
                                         hasData = true;
@@ -1568,7 +1653,26 @@
         const item = matchedResults[currentCardIndex];
         const isDuplicate = matchedResults.length > 1;
 
-        document.getElementById('resCardNo').innerText = getFieldValue(item, ['কাড', 'কার্ড', 'card', 'ক্রমিক']);
+        // ব্লক নাম + কার্ড নম্বর একসাথে দেখানো
+        const blockName = getFieldValue(item, ['ব্লক', 'block']);
+        let cardNo = getFieldValue(item, ['কাড', 'কার্ড', 'card', 'ক্রমিক']);
+
+        // কার্ড নম্বর থেকে $ সাইন মুছে ফেলা
+        cardNo = cardNo.replace(/\$/g, '').trim();
+
+        // "ব্লক" শব্দ সরিয়ে শুধু নাম রাখা (যেমন: "কালমেঘ ব্লক" -> "কালমেঘ")
+        let cleanBlockName = blockName.replace(/\s*ব্লক\s*/gi, '').trim();
+        if (cleanBlockName === '-' || cleanBlockName === '') {
+            cleanBlockName = blockName; // যদি ব্লক নাম না থাকে তাহলে আসল ভ্যালু রাখা
+        }
+
+        // ব্লক নাম + কার্ড নম্বর (যেমন: "কালমেঘ ব্লক ১")
+        let displayBlock = cleanBlockName;
+        if (cardNo !== '-' && cardNo !== '') {
+            displayBlock = `${cleanBlockName} ব্লক ${cardNo}`;
+        }
+
+        document.getElementById('resBlock').innerText = displayBlock;
         document.getElementById('resName').innerText = getFieldValue(item, ['নাম', 'name']);
 
         const nidElem = document.getElementById('resNidVal');
@@ -1585,7 +1689,6 @@
 
         document.getElementById('resFather').innerText = getFieldValue(item, ['পিতা', 'father']);
         document.getElementById('resMother').innerText = getFieldValue(item, ['মাতা', 'mother']);
-        document.getElementById('resBlock').innerText = getFieldValue(item, ['ব্লক', 'block']);
         document.getElementById('resVillage').innerText = getFieldValue(item, ['গ্রাম', 'village']);
         document.getElementById('resWard').innerText = getFieldValue(item, ['ওয়ার্ড', 'ward']);
         document.getElementById('resMouza').innerText = getFieldValue(item, ['মৌজা', 'mouza']);
