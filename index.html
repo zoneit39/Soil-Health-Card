@@ -1,0 +1,3133 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>মাটির স্বাস্থ্য সুরক্ষা কার্ড</title>
+
+    <!-- SheetJS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- html2canvas (কার্ডের ছবি সেভ করার জন্য) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDK (Realtime Database) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root {
+            --primary-green: #1b5e20;
+            --primary-light: #2e7d32;
+            --accent-blue: #1976d2;
+            --danger-red: #d32f2f;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Hind Siliguri', sans-serif;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
+            background: #fff;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            margin: 16px;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .auth-header h2 {
+            color: var(--primary-green);
+            font-size: 20px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .auth-tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: #e5e7eb;
+            color: #374151;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .auth-tab-btn.active {
+            background: var(--primary-green);
+            color: white;
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .app-container {
+            width: 100%;
+            height: 100vh;
+            background: var(--card-bg);
+            display: none;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Mobile View (up to 768px) */
+        @media (max-width: 768px) {
+            .app-container {
+                max-width: 100%;
+            }
+        }
+
+        /* Desktop/Web View (769px and above) */
+        @media (min-width: 769px) {
+            body {
+                background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            }
+
+            .app-container {
+                max-width: 1400px;
+                height: auto;
+                min-height: 100vh;
+                margin: 0 auto;
+                box-shadow: 0 0 30px rgba(0,0,0,0.1);
+            }
+
+            .app-body {
+                padding: 30px 40px;
+            }
+
+            .toolbar {
+                padding: 15px 20px;
+            }
+
+            .search-card {
+                padding: 20px;
+                max-width: 800px;
+                margin: 0 auto 20px;
+            }
+
+            .result-card {
+                max-width: 800px;
+                margin: 0 auto 20px;
+                padding: 24px;
+            }
+
+            .status-bar {
+                max-width: 800px;
+                margin: 0 auto 20px;
+            }
+        }
+
+        .app-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 260px;
+            height: 260px;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/e0/DAE_Logo.png');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            opacity: 0.12;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .app-header {
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-light));
+            color: white;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            padding: 2px;
+            object-fit: contain;
+        }
+
+        .header-titles h1 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .header-titles span {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+
+        .btn-logout {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .app-body {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            background: rgba(245, 247, 250, 0.9);
+            padding: 10px 14px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .admin-only {
+            display: none;
+        }
+
+        .toolbar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            flex: 1;
+        }
+
+        .toolbar-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .btn-upload {
+            background-color: var(--primary-green);
+            color: white;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .btn-add-entry {
+            background-color: #10b981;
+            color: white;
+            border: none;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-admin-approval {
+            background-color: #f59e0b;
+            color: white;
+            border: none;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #4b5563;
+            background: #eef2ff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #c7d2fe;
+        }
+
+        .btn-clear {
+            background: none;
+            border: none;
+            color: var(--danger-red);
+            font-weight: 700;
+            font-size: 11px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .btn-view {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .data-view-modal .modal-body {
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .data-table th {
+            background: var(--primary-green);
+            color: white;
+            padding: 8px 6px;
+            text-align: left;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 6px;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+
+        .data-table tr:hover {
+            background: #f3f4f6;
+        }
+
+        .data-table-container {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .search-card {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid #e5e7eb;
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 14px;
+        }
+
+        .search-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .search-tab-btn {
+            flex: 1;
+            white-space: nowrap;
+            padding: 8px 6px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            color: #374151;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .search-tab-btn.active {
+            background: var(--primary-green);
+            color: white;
+            border-color: var(--primary-green);
+        }
+
+        .search-input-group {
+            display: none;
+        }
+
+        .search-input-group.active {
+            display: block;
+        }
+
+        .search-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 8px;
+        }
+
+        .search-box-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-input, .auth-input {
+            width: 100%;
+            padding: 10px;
+            border: 1.5px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-input:focus, .auth-input:focus {
+            border-color: var(--primary-green);
+        }
+
+        .btn-search, .btn-auth {
+            background-color: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .btn-search {
+            width: auto;
+        }
+
+        .duplicate-alert {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .no-data {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+            display: none;
+            margin-top: 8px;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid var(--primary-green);
+            border-radius: 14px;
+            padding: 16px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .result-field {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 13px;
+        }
+
+        .result-field:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        .result-value {
+            text-align: right;
+            color: #111827;
+            font-weight: 500;
+        }
+
+        .card-pagination {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+
+        .btn-page {
+            background: #e0e0e0;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-page:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .page-indicator {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--danger-red);
+        }
+
+        .app-footer {
+            padding: 14px 16px;
+            background: #ffffff;
+            border-top: 1px solid #f3f4f6;
+            position: relative;
+            z-index: 2;
+        }
+
+        .dev-credit {
+            text-align: center; padding: 14px 16px 22px; background: #fff;
+            border-top: 1px solid #e5e7eb; font-size: 13px; font-weight: 700;
+            color: #374151; line-height: 1.8; font-family: Roboto, 'Segoe UI', Arial, sans-serif;
+        }
+        .dev-credit a { color: #1e63b5; text-decoration: none; }
+
+        /* 🔍 ছবি বড় করে দেখা */
+        .lb-overlay {
+            position: fixed; inset: 0; z-index: 99999;
+            background: rgba(0,0,0,.88);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 16px; gap: 14px;
+        }
+        .lb-overlay.show { display: flex; }
+        .lb-overlay img {
+            max-width: 100%; max-height: 78vh; object-fit: contain;
+            border-radius: 12px; background: #fff;
+            box-shadow: 0 10px 40px rgba(0,0,0,.5);
+        }
+        .lb-cap { color: #fff; font-size: 14px; font-weight: 700; }
+        .lb-btns { display: flex; gap: 10px; }
+        .lb-btns button {
+            border: none; border-radius: 12px; padding: 10px 18px;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            background: #fff; color: #14351a;
+        }
+        .lb-btns button.close { background: #e53935; color: #fff; }
+
+        .btn-download {
+            width: 100%;
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Mobile View */
+        @media (max-width: 768px) {
+            .modal-content {
+                width: 100%;
+                height: 100%;
+            }
+        }
+
+        /* Desktop/Web View */
+        @media (min-width: 769px) {
+            .modal-content {
+                margin: 5vh auto;
+                width: 90%;
+                max-width: 700px;
+                height: auto;
+                border-radius: 16px;
+                max-height: 90vh;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            }
+
+            .modal-body {
+                padding: 30px 40px !important;
+            }
+
+            .form-group {
+                margin-bottom: 20px !important;
+            }
+
+            .form-group label {
+                font-size: 14px !important;
+                margin-bottom: 8px !important;
+            }
+
+            .form-group input,
+            .form-group select,
+            .form-group textarea {
+                padding: 12px 15px !important;
+                font-size: 15px !important;
+                border-radius: 8px !important;
+            }
+
+            .modal-footer {
+                padding: 20px 40px !important;
+            }
+
+            .btn-save-entry,
+            .btn-cancel-entry {
+                padding: 14px 24px !important;
+                font-size: 15px !important;
+            }
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-light));
+            color: white;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 14px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 6px;
+        }
+
+        .modal-footer {
+            padding: 16px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-save-entry {
+            flex: 1;
+            background-color: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-cancel-entry {
+            flex: 1;
+            background-color: #e5e7eb;
+            color: #4b5563;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .user-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .user-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .user-card-details {
+            font-size: 12px;
+            color: #4b5563;
+            background: #fff;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px dashed #cbd5e1;
+        }
+
+        .btn-approve {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-reject {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary-green);
+            margin: 12px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 2px solid var(--primary-green);
+        }
+
+        .sync-loading {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        /* ===== নতুন এন্ট্রি মডাল (আধুনিক ডিজাইন) ===== */
+        #entryModal.modal {
+            background: rgba(15, 23, 42, 0.55);
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+            overflow-y: auto;
+        }
+        #entryModal.modal[style*="block"] { animation: emFade .2s ease; }
+
+        .em-sheet {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            background: #f8faf8;
+            overflow: hidden;
+            animation: emUp .28s cubic-bezier(.2,.8,.2,1);
+        }
+        @media (min-width: 769px) {
+            .em-sheet {
+                width: 92%;
+                max-width: 760px;
+                height: auto;
+                max-height: 90vh;
+                margin: 5vh auto;
+                border-radius: 22px;
+                box-shadow: 0 30px 80px rgba(0,0,0,.35);
+            }
+        }
+        @keyframes emFade { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes emUp { from { opacity: 0; transform: translateY(24px) scale(.98) } to { opacity: 1; transform: none } }
+
+        .em-header {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 20px 20px 22px;
+            color: #fff;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(255,255,255,.18), transparent 45%),
+                linear-gradient(135deg, var(--primary-green), var(--primary-light) 70%, #43a047);
+        }
+        .em-header-icon {
+            width: 46px; height: 46px; flex: none;
+            display: grid; place-items: center;
+            font-size: 24px;
+            background: rgba(255,255,255,.2);
+            border: 1px solid rgba(255,255,255,.3);
+            border-radius: 14px;
+        }
+        .em-header-text { flex: 1; min-width: 0; }
+        .em-header-text h2 { font-size: 19px; font-weight: 700; line-height: 1.25; }
+        .em-header-text p { font-size: 12.5px; opacity: .85; margin-top: 2px; }
+        .em-close {
+            flex: none;
+            width: 36px; height: 36px;
+            border: none; border-radius: 50%;
+            background: rgba(255,255,255,.18);
+            color: #fff; font-size: 16px; cursor: pointer;
+            transition: background .15s, transform .15s;
+        }
+        .em-close:hover { background: rgba(255,255,255,.3); transform: rotate(90deg); }
+        .em-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0,0,0,.15); }
+        .em-progress span { display: block; height: 100%; width: 0; background: #b9f6ca; border-radius: 0 4px 4px 0; transition: width .3s ease; }
+
+        .em-body { flex: 1; overflow-y: auto; padding: 18px 16px 8px; -webkit-overflow-scrolling: touch; }
+        @media (min-width: 769px) { .em-body { padding: 24px 28px 10px; } }
+
+        .em-section {
+            background: #fff;
+            border: 1px solid #e8ece8;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 14px;
+            box-shadow: 0 1px 2px rgba(16,24,40,.04);
+        }
+        .em-section-title {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 14px; font-weight: 700;
+            color: var(--primary-green);
+            margin-bottom: 14px; padding-bottom: 10px;
+            border-bottom: 1px dashed #dfe6df;
+        }
+        .em-section-title span {
+            display: grid; place-items: center;
+            width: 28px; height: 28px; font-size: 15px;
+            background: #e8f5e9; border-radius: 8px;
+        }
+
+        .em-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+        @media (min-width: 560px) { .em-grid { grid-template-columns: 1fr 1fr; } .em-grid-3 { grid-template-columns: 1fr 1fr 1fr; } }
+
+        .em-field label { display: block; font-size: 12.5px; font-weight: 600; color: #4b5563; margin-bottom: 6px; }
+        .em-req { color: var(--danger-red); font-style: normal; font-weight: 700; }
+
+        .em-input {
+            display: flex; align-items: center; gap: 8px;
+            background: #f4f6f4;
+            border: 1.5px solid transparent;
+            border-radius: 12px;
+            padding: 0 12px;
+            transition: border-color .15s, background .15s, box-shadow .15s;
+        }
+        .em-input:hover { background: #eef2ee; }
+        .em-input:focus-within {
+            background: #fff;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 4px rgba(46,125,50,.12);
+        }
+        .em-ico { font-size: 15px; opacity: .75; flex: none; filter: grayscale(.2); }
+        .em-input input {
+            flex: 1; min-width: 0; width: 100%;
+            border: none !important; outline: none; background: transparent !important;
+            padding: 12px 0 !important;
+            font-size: 15px !important; color: #111827;
+            border-radius: 0 !important;
+        }
+        .em-input input::placeholder { color: #9ca3af; }
+        .em-field.em-invalid .em-input { border-color: var(--danger-red); background: #fff5f5; animation: emShake .35s; }
+        .em-field.em-invalid .em-input:focus-within { box-shadow: 0 0 0 4px rgba(211,47,47,.12); }
+        .em-field.em-valid .em-input { border-color: #a5d6a7; }
+        @keyframes emShake { 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }
+
+        /* 📷 এন্ট্রি ফর্মে ছবি আপলোড */
+        .em-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .em-ph { text-align: center; }
+        .em-ph label.em-ph-t { display: block; font-size: 12.5px; font-weight: 600; color: #4b5563; margin-bottom: 6px; }
+        .em-ph-box {
+            position: relative; height: 130px; border-radius: 14px; overflow: hidden;
+            border: 2px dashed #a5c8a8; background: #f6fbf6; color: #4b7a50;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 4px; font-size: 12px; cursor: pointer; transition: background .15s, border-color .15s;
+        }
+        .em-ph-box:hover { background: #edf7ee; border-color: #66a86b; }
+        .em-ph-box .ph-ico { font-size: 28px; }
+        .em-ph-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .em-ph-box.has-img { border-style: solid; border-color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.16); }
+        .em-ph-rm {
+            position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%;
+            border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 13px; cursor: pointer;
+            display: none; align-items: center; justify-content: center;
+        }
+        .em-ph-box.has-img .em-ph-rm { display: flex; }
+        .em-note { font-size: 12px; color: #6b7280; text-align: center; padding: 2px 0 10px; }
+
+        .em-footer {
+            display: flex; gap: 10px;
+            padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+            background: rgba(255,255,255,.92);
+            -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+            border-top: 1px solid #e5e9e5;
+        }
+        @media (min-width: 769px) { .em-footer { padding: 16px 28px; } }
+        .em-btn {
+            border: none; border-radius: 12px;
+            padding: 13px 18px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: transform .12s, box-shadow .15s, background .15s;
+        }
+        .em-btn:active { transform: scale(.97); }
+        .em-btn-cancel { flex: 1; background: #eceff1; color: #4b5563; }
+        .em-btn-cancel:hover { background: #e0e4e7; }
+        .em-btn-save {
+            flex: 2;
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary-green), #388e3c);
+            box-shadow: 0 6px 16px rgba(27,94,32,.3);
+        }
+        .em-btn-save:hover { box-shadow: 0 8px 22px rgba(27,94,32,.4); }
+        .em-btn-save:disabled { opacity: .7; cursor: wait; }
+
+        /* =====================================================
+           ✨ Modern UI v2 — সার্চ + রেজাল্ট কার্ড
+           ===================================================== */
+        .search-card {
+            background: #ffffff;
+            border: none;
+            border-radius: 20px;
+            padding: 16px;
+            box-shadow: 0 8px 30px rgba(27,94,32,.10), 0 1px 3px rgba(0,0,0,.06);
+        }
+        .search-tabs {
+            background: #eef3ef;
+            padding: 4px;
+            border-radius: 14px;
+            gap: 2px;
+            margin-bottom: 14px;
+        }
+        .search-tab-btn {
+            border: none;
+            background: transparent;
+            color: #4b5563;
+            border-radius: 11px;
+            padding: 9px 4px;
+            font-size: 12.5px;
+            transition: all .2s ease;
+        }
+        .search-tab-btn.active {
+            background: #fff;
+            color: var(--primary-green);
+            box-shadow: 0 2px 8px rgba(0,0,0,.10);
+        }
+        .sx-wrap { position: relative; flex: 1; }
+        .sx-ico {
+            position: absolute; left: 13px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 15px; opacity: .55; pointer-events: none;
+        }
+        .search-box-group .search-input {
+            padding: 13px 38px 13px 38px;
+            border-radius: 14px;
+            border: 1.5px solid #e2e8e4;
+            background: #f8faf8;
+            font-size: 15px;
+            transition: all .2s;
+        }
+        .search-box-group .search-input:focus {
+            background: #fff;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 4px rgba(46,125,50,.12);
+        }
+        .sx-clear {
+            position: absolute; right: 8px; top: 50%;
+            transform: translateY(-50%);
+            width: 24px; height: 24px; border-radius: 50%;
+            border: none; background: #d1d5db; color: #fff;
+            font-size: 12px; line-height: 24px; text-align: center;
+            cursor: pointer; display: none; padding: 0;
+        }
+        .sx-clear.show { display: block; }
+        .btn-search {
+            border-radius: 14px;
+            padding: 0 20px;
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-light));
+            box-shadow: 0 4px 12px rgba(27,94,32,.30);
+            transition: transform .15s;
+        }
+        .btn-search:active { transform: scale(.96); }
+        .search-label { font-size: 12px; color: #6b7280; letter-spacing: .2px; }
+
+        /* লাইভ সাজেশন */
+        .sx-list {
+            display: none;
+            margin-top: 12px;
+            border: 1px solid #e8eee9;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #fff;
+            animation: shcUp .25s ease;
+        }
+        .sx-head {
+            font-size: 11px; font-weight: 600; color: #6b7280;
+            background: #f6f8f6; padding: 6px 12px;
+        }
+        .sx-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 12px; cursor: pointer;
+            border-top: 1px solid #f1f5f2;
+            transition: background .15s;
+        }
+        .sx-item:hover, .sx-item:active { background: #f1f8f2; }
+        .sx-av {
+            width: 38px; height: 38px; border-radius: 50%;
+            flex-shrink: 0; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-weight: 700; font-size: 16px;
+        }
+        .sx-av img { width: 100%; height: 100%; object-fit: cover; }
+        .sx-txt { min-width: 0; flex: 1; }
+        .sx-name { font-size: 14px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sx-sub { font-size: 11.5px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sx-badge {
+            font-size: 11px; font-weight: 700; color: var(--primary-green);
+            background: #e8f5e9; padding: 3px 8px; border-radius: 20px; flex-shrink: 0;
+        }
+
+        .duplicate-alert {
+            background: #fff8e1; border: none; border-left: 4px solid #ffb300;
+            border-radius: 10px; color: #7a5b00; font-size: 12.5px; padding: 9px 12px;
+        }
+        .no-data { border-radius: 12px; border: none; background: #fdecea; }
+
+        /* রেজাল্ট কন্টেইনার */
+        .result-card {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            animation: shcUp .35s ease;
+        }
+        @keyframes shcUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+        /* 🪪 ভিজ্যুয়াল কার্ড */
+        .shc {
+            border-radius: 22px;
+            overflow: hidden;
+            background: #fff;
+            box-shadow: 0 14px 40px rgba(27,94,32,.22), 0 2px 6px rgba(0,0,0,.06);
+            border: 1px solid #dcebdd;
+        }
+        .shc-top {
+            position: relative;
+            display: flex; align-items: center; gap: 10px;
+            padding: 14px 16px;
+            color: #fff;
+            background:
+                radial-gradient(circle at 90% 0%, rgba(255,255,255,.18), transparent 45%),
+                linear-gradient(135deg, #1b5e20 0%, #2e7d32 55%, #43a047 100%);
+        }
+        .shc-top img {
+            width: 38px; height: 38px; border-radius: 50%;
+            background: #fff; padding: 2px; object-fit: contain; flex-shrink: 0;
+        }
+        .shc-ttl { flex: 1; min-width: 0; }
+        .shc-ttl b { display: block; font-size: 14px; line-height: 1.25; }
+        .shc-ttl small { font-size: 10.5px; opacity: .85; }
+        .shc-no {
+            text-align: right; flex-shrink: 0;
+            background: rgba(255,255,255,.18);
+            border: 1px solid rgba(255,255,255,.35);
+            padding: 4px 10px; border-radius: 10px;
+        }
+        .shc-no small { display: block; font-size: 9.5px; opacity: .85; }
+        .shc-no b { font-size: 14px; letter-spacing: .3px; }
+
+        .shc-main {
+            display: flex; gap: 14px; align-items: center;
+            padding: 18px 16px 12px;
+            background: linear-gradient(180deg, #f3faf4 0%, #ffffff 100%);
+        }
+        .shc-photo {
+            position: relative; flex-shrink: 0;
+            width: 92px; height: 108px; border-radius: 16px;
+            overflow: hidden; cursor: pointer;
+            border: 3px solid #fff;
+            box-shadow: 0 6px 18px rgba(0,0,0,.18);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 38px; font-weight: 700;
+        }
+        .shc-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .shc-cam {
+            position: absolute; right: 4px; bottom: 4px;
+            width: 24px; height: 24px; border-radius: 50%;
+            background: rgba(0,0,0,.55); color: #fff;
+            font-size: 12px; display: flex; align-items: center; justify-content: center;
+        }
+        .shc-who { flex: 1; min-width: 0; }
+        /* 🖼️ কার্ডের ছবি ঘর (ডান পাশে) */
+        .shc-cphoto {
+            position: relative; flex-shrink: 0; align-self: stretch;
+            width: 118px; min-height: 108px; max-height: 124px;
+            border-radius: 12px; overflow: hidden; cursor: pointer;
+            border: 2px dashed #a5c8a8; background: #f6fbf6;
+            display: flex; align-items: center; justify-content: center;
+            text-align: center; color: #4b7a50;
+        }
+        .shc-cphoto.has-img { border: 2px solid #fff; background: #e5e7eb; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+        .shc-cphoto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .shc-cphoto .cph-empty { font-size: 11px; line-height: 1.35; padding: 6px; }
+        .shc-cphoto .cph-empty span { display: block; font-size: 26px; margin-bottom: 2px; }
+        @media (max-width: 440px) { .shc-cphoto { width: 84px; min-height: 96px; } }
+        .shc-name { font-size: 19px; font-weight: 700; color: #14351a; line-height: 1.25; word-break: break-word; }
+        .shc-block {
+            display: inline-block; margin-top: 6px;
+            background: #e8f5e9; color: var(--primary-green);
+            font-size: 12.5px; font-weight: 700;
+            padding: 4px 10px; border-radius: 20px;
+        }
+        .shc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .shc-chip {
+            font-size: 11.5px; color: #374151; background: #f3f4f6;
+            padding: 3px 9px; border-radius: 20px;
+        }
+        .shc-foot {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+            background: #e5ece6; border-top: 1px solid #e5ece6;
+        }
+        .shc-foot > div { background: #fff; padding: 10px 16px; }
+        .shc-foot small { display: block; font-size: 10.5px; color: #6b7280; }
+        .shc-foot b { font-size: 14px; color: #111827; word-break: break-all; }
+
+        /* 🧩 তথ্য টাইল */
+        .tiles {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 10px; margin-top: 14px;
+        }
+        .tile {
+            display: flex; gap: 10px; align-items: center;
+            background: #fff; border: 1px solid #e8eee9;
+            border-radius: 14px; padding: 11px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.03);
+        }
+        .tile-ico {
+            width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px;
+            background: #e8f5e9; display: flex; align-items: center; justify-content: center;
+            font-size: 17px;
+        }
+        .tile-t { min-width: 0; }
+        .tile-t small { display: block; font-size: 10.5px; color: #6b7280; }
+        .tile-t b { font-size: 13.5px; color: #111827; font-weight: 600; word-break: break-word; }
+        .tile.wide { grid-column: span 2; }
+        @media (min-width: 600px) {
+            .tiles { grid-template-columns: repeat(3, 1fr); }
+            .tile.wide { grid-column: span 1; }
+        }
+
+        /* অ্যাকশন বাটন */
+        .res-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .res-actions > * { flex: 1; min-width: 110px; }
+        .btn-act {
+            border: none; border-radius: 14px; padding: 12px 10px;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            text-decoration: none; transition: transform .15s;
+        }
+        .btn-act:active { transform: scale(.96); }
+        .btn-act.primary { background: linear-gradient(135deg, #1b5e20, #43a047); color: #fff; box-shadow: 0 4px 12px rgba(27,94,32,.30); }
+        .btn-act.soft { background: #e8f5e9; color: var(--primary-green); }
+        .btn-act.blue { background: #e3f2fd; color: #0d47a1; }
+        .btn-act.amber { background: #fff3e0; color: #e65100; }
+
+        .card-pagination {
+            background: #fff; border: 1px solid #e8eee9; border-radius: 14px;
+            padding: 8px 10px; margin: 0 0 12px; border-top: 1px solid #e8eee9;
+        }
+        .btn-page { background: #eef3ef; border-radius: 10px; padding: 8px 14px; }
+
+        .shc-toast {
+            position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+            background: #14351a; color: #fff; padding: 10px 18px; border-radius: 24px;
+            font-size: 13px; opacity: 0; transition: all .3s; z-index: 9999; pointer-events: none;
+        }
+        .shc-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+
+<!-- অথেন্টিকেশন স্ক্রিন -->
+<div id="authContainer" class="auth-container">
+    <div class="auth-header">
+        <h2>🌱 সফটওয়্যার অ্যাক্সেস</h2>
+    </div>
+    <div class="auth-tabs">
+        <button class="auth-tab-btn active" onclick="switchAuthTab('login')">লগইন</button>
+        <button class="auth-tab-btn" onclick="switchAuthTab('register')">রেজিস্ট্রেশন</button>
+    </div>
+
+    <!-- লগইন ফর্ম -->
+    <div id="loginForm" class="auth-form active">
+        <div class="form-group">
+            <label>ইউজার আইডি / User ID</label>
+            <input type="text" id="loginUserId" class="auth-input" placeholder="User ID লিখুন">
+        </div>
+        <div class="form-group">
+            <label>পাসওয়ার্ড / Password</label>
+            <input type="password" id="loginPassword" class="auth-input" placeholder="Password লিখুন">
+        </div>
+        <button class="btn-auth" onclick="handleLogin()">লগইন করুন</button>
+        <div id="loginSyncStatus" style="margin-top:10px; font-size:12px; text-align:center; color:#6b7280;">ডাটাবেজের সাথে সংযোগ করা হচ্ছে...</div>
+    </div>
+
+    <!-- রেজিস্ট্রেশন ফর্ম -->
+    <div id="registerForm" class="auth-form">
+        <div class="form-group">
+            <label>নাম / Name</label>
+            <input type="text" id="regName" class="auth-input" placeholder="আপনার নাম">
+        </div>
+        <div class="form-group">
+            <label>ইউজার আইডি / User ID</label>
+            <input type="text" id="regUserId" class="auth-input" placeholder="নতুন User ID দিন">
+        </div>
+        <div class="form-group">
+            <label>পাসওয়ার্ড / Password</label>
+            <input type="password" id="regPassword" class="auth-input" placeholder="Password দিন">
+        </div>
+        <button class="btn-auth" onclick="handleRegister()">রেজিস্টার করুন</button>
+    </div>
+</div>
+
+<!-- মূল অ্যাপ কন্টেইনার -->
+<div id="appContainer" class="app-container">
+    <div class="app-watermark"></div>
+
+    <!-- হেডার -->
+    <div class="app-header">
+        <div class="header-info">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/DAE_Logo.png" alt="Logo" class="header-logo">
+            <div class="header-titles">
+                <h1>🌱 মাটির স্বাস্থ্য সুরক্ষা কার্ড</h1>
+                <span id="currentUserDisplay">ইউজার: -</span>
+            </div>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()">লগআউট</button>
+    </div>
+
+    <!-- কন্টেন্ট এলাকা -->
+    <div class="app-body">
+        <div class="toolbar">
+            <span class="toolbar-title">অনলাইন তথ্য ব্যবস্থা</span>
+            <div class="toolbar-buttons">
+                <button id="adminApprovalBtn" class="btn-admin-approval admin-only" onclick="openApprovalModal()">👑 ইউজার কন্ট্রোল (<span id="pendingCount">0</span>)</button>
+                <button class="btn-add-entry admin-only" onclick="openEntryForm()">➕ নতুন</button>
+                <div class="upload-btn-wrapper admin-only">
+                    <button class="btn-upload">📁 Excel আপলোড</button>
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" multiple onchange="handleFileUpload(event)" />
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div>
+                <span>অনলাইন ডাটা: <strong id="totalRecordCount" style="color: var(--primary-green);">০</strong> টি</span>
+                <div id="syncStatus" class="sync-loading">লাইভ সিঙ্ক চালু আছে...</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn-view" onclick="openDataViewModal()">👁️ View</button>
+                <button class="btn-clear admin-only" onclick="clearStoredData()">🗑️ ক্লিয়ার</button>
+            </div>
+        </div>
+
+        <!-- সার্চ বক্স -->
+        <div class="search-card">
+            <div class="search-tabs">
+                <button class="search-tab-btn active" onclick="switchSearchTab('nid')">🪪 NID</button>
+                <button class="search-tab-btn" onclick="switchSearchTab('card')">🏷️ কার্ড</button>
+                <button class="search-tab-btn" onclick="switchSearchTab('mobile')">📱 মোবাইল</button>
+                <button class="search-tab-btn" onclick="switchSearchTab('name')">👤 নাম</button>
+            </div>
+
+            <div id="nidSearchGroup" class="search-input-group active">
+                <label for="nidInput" class="search-label">জাতীয় পরিচয়পত্র নম্বর:</label>
+                <div class="search-box-group">
+                    <div class="sx-wrap"><span class="sx-ico">🪪</span><input type="text" autocomplete="off" id="nidInput" class="search-input" placeholder="যেমন: 5058258368"><button type="button" class="sx-clear" id="clr_nidInput" onclick="clearSearchInput('nidInput')">✕</button></div>
+                    <button class="btn-search" onclick="searchByNID()">খুঁজুন</button>
+                </div>
+            </div>
+
+            <div id="cardSearchGroup" class="search-input-group">
+                <label for="cardInput" class="search-label">কার্ড নম্বর:</label>
+                <div class="search-box-group">
+                    <div class="sx-wrap"><span class="sx-ico">🏷️</span><input type="text" autocomplete="off" id="cardInput" class="search-input" placeholder="যেমন: SHC-2024-001"><button type="button" class="sx-clear" id="clr_cardInput" onclick="clearSearchInput('cardInput')">✕</button></div>
+                    <button class="btn-search" onclick="searchByCard()">খুঁজুন</button>
+                </div>
+            </div>
+
+            <div id="mobileSearchGroup" class="search-input-group">
+                <label for="mobileInput" class="search-label">মোবাইল নম্বর:</label>
+                <div class="search-box-group">
+                    <div class="sx-wrap"><span class="sx-ico">📱</span><input type="tel" inputmode="numeric" id="mobileInput" class="search-input" placeholder="যেমন: 01712345678"><button type="button" class="sx-clear" id="clr_mobileInput" onclick="clearSearchInput('mobileInput')">✕</button></div>
+                    <button class="btn-search" onclick="searchByMobile()">খুঁজুন</button>
+                </div>
+            </div>
+
+            <div id="nameSearchGroup" class="search-input-group">
+                <label for="nameInput" class="search-label">কৃষকের নাম:</label>
+                <div class="search-box-group">
+                    <div class="sx-wrap"><span class="sx-ico">👤</span><input type="text" autocomplete="off" id="nameInput" class="search-input" placeholder="যেমন: আব্দুল করিম"><button type="button" class="sx-clear" id="clr_nameInput" onclick="clearSearchInput('nameInput')">✕</button></div>
+                    <button class="btn-search" onclick="searchByName()">খুঁজুন</button>
+                </div>
+            </div>
+
+            <div id="suggestBox" class="sx-list"></div>
+            <div id="duplicateAlert" class="duplicate-alert"></div>
+            <div id="noDataMsg" class="no-data">❌ কোনো তথ্য পাওয়া যায়নি!</div>
+        </div>
+
+        <!-- সার্চ রেজাল্ট -->
+        <div id="resultCard" class="result-card">
+
+            <div id="cardPagination" class="card-pagination">
+                <button class="btn-page" id="prevBtn" onclick="changeCard(-1)">← আগে</button>
+                <span class="page-indicator" id="pageIndicator">১ / ১</span>
+                <button class="btn-page" id="nextBtn" onclick="changeCard(1)">পরে →</button>
+            </div>
+
+            <!-- 🪪 কার্ড ভিজ্যুয়াল (এটাই ছবি হিসেবে সেভ হবে) -->
+            <div class="shc" id="shcVisual">
+                <div class="shc-top">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/e/e0/DAE_Logo.png" crossorigin="anonymous" alt="DAE">
+                    <div class="shc-ttl"><b>মাটির স্বাস্থ্য সুরক্ষা কার্ড</b><small>কৃষি সম্প্রসারণ অধিদপ্তর</small></div>
+                    <div class="shc-no"><small>কার্ড নং</small><b id="vcCardNo">-</b></div>
+                </div>
+                <div class="shc-main">
+                    <div class="shc-photo" id="shcPhoto" onclick="photoTap('farmer')" title="ছবি দেখুন / যোগ করুন"></div>
+                    <div class="shc-who">
+                        <div class="shc-name" id="resName">-</div>
+                        <span class="shc-block" id="resBlock">-</span>
+                        <div class="shc-chips" id="vcChips"></div>
+                    </div>
+                    <div class="shc-cphoto" id="shcCardPhoto" onclick="photoTap('card')" title="কার্ডের ছবি দেখুন / যোগ করুন"></div>
+                </div>
+                <div class="shc-foot">
+                    <div><small>জাতীয় পরিচয়পত্র</small><b id="resNidVal">-</b></div>
+                    <div><small>মোবাইল</small><b id="resMobile">-</b></div>
+                </div>
+            </div>
+            <input type="file" id="photoPicker" accept="image/*" style="display:none" onchange="pickLocalPhoto(event)">
+            <input type="file" id="cardPhotoPicker" accept="image/*" style="display:none" onchange="pickCardPhoto(event)">
+
+            <!-- 🧩 বিস্তারিত তথ্য -->
+            <div class="tiles">
+                <div class="tile"><div class="tile-ico">👨</div><div class="tile-t"><small>পিতা</small><b id="resFather">-</b></div></div>
+                <div class="tile"><div class="tile-ico">👩</div><div class="tile-t"><small>মাতা</small><b id="resMother">-</b></div></div>
+                <div class="tile"><div class="tile-ico">🏡</div><div class="tile-t"><small>গ্রাম</small><b id="resVillage">-</b></div></div>
+                <div class="tile"><div class="tile-ico">#️⃣</div><div class="tile-t"><small>ওয়ার্ড</small><b id="resWard">-</b></div></div>
+                <div class="tile"><div class="tile-ico">🗺️</div><div class="tile-t"><small>মৌজা</small><b id="resMouza">-</b></div></div>
+                <div class="tile"><div class="tile-ico">🏛️</div><div class="tile-t"><small>ইউনিয়ন</small><b id="resUnion">-</b></div></div>
+                <div class="tile wide"><div class="tile-ico">🌾</div><div class="tile-t"><small>মোট জমি</small><b id="resLand">-</b></div></div>
+            </div>
+
+            <!-- ⚡ অ্যাকশন -->
+            <div class="res-actions">
+                <button class="btn-act amber admin-only" onclick="openEditForm()">✏️ সংশোধন</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ফুটার -->
+    <div class="app-footer admin-only">
+        <button class="btn-download" onclick="downloadExcel()">📥 Excel ডাউনলোড</button>
+    </div>
+    <div class="dev-credit">
+        <div>Developed By: <a href="#" onclick="return false;">ITZone</a> , Baliadangi, Thakurgaon</div>
+        <div>Helpline - 📞 <a href="tel:+8801737550239">+88 01737550239</a></div>
+    </div>
+</div>
+
+<!-- 🔍 ছবি বড় করে দেখার ওভারলে -->
+<div id="photoLightbox" class="lb-overlay" onclick="if(event.target===this)closeLightbox()">
+    <div class="lb-cap" id="lbCap"></div>
+    <img id="lbImg" alt="">
+    <div class="lb-btns">
+        <button type="button" onclick="lbChange()">🔄 ছবি পরিবর্তন</button>
+        <button type="button" class="close" onclick="closeLightbox()">✖ বন্ধ</button>
+    </div>
+</div>
+
+<!-- নতুন এন্ট্রি ফর্ম মডাল -->
+<div id="entryModal" class="modal">
+    <div class="em-sheet" role="dialog" aria-modal="true" aria-labelledby="emTitle">
+        <div class="em-header">
+            <div class="em-header-icon">🌱</div>
+            <div class="em-header-text">
+                <h2 id="emTitle">নতুন তথ্য এন্ট্রি</h2>
+                <p>কৃষকের তথ্য সংরক্ষণ করুন</p>
+            </div>
+            <button class="em-close" onclick="closeEntryForm()" aria-label="বন্ধ করুন">✕</button>
+            <div class="em-progress"><span id="emProgressBar"></span></div>
+        </div>
+
+        <div class="em-body">
+            <section class="em-section">
+                <div class="em-section-title"><span>📷</span> ছবি (ঐচ্ছিক)</div>
+                <div class="em-photos">
+                    <div class="em-ph">
+                        <label class="em-ph-t">কৃষকের ছবি</label>
+                        <div class="em-ph-box" id="entryPhotoBox" onclick="document.getElementById('entryPhotoFile').click()">
+                            <div class="ph-empty"><div class="ph-ico">🧑‍🌾</div>ছবি যোগ করুন</div>
+                            <button type="button" class="em-ph-rm" onclick="event.stopPropagation(); removeEntryPhoto('farmer')" aria-label="ছবি মুছুন">✕</button>
+                        </div>
+                        <input type="file" id="entryPhotoFile" accept="image/*" style="display:none" onchange="pickEntryPhoto(event,'farmer')">
+                    </div>
+                    <div class="em-ph">
+                        <label class="em-ph-t">কার্ডের ছবি</label>
+                        <div class="em-ph-box" id="entryCardPhotoBox" onclick="document.getElementById('entryCardPhotoFile').click()">
+                            <div class="ph-empty"><div class="ph-ico">🪪</div>কার্ডের ছবি যোগ করুন</div>
+                            <button type="button" class="em-ph-rm" onclick="event.stopPropagation(); removeEntryPhoto('card')" aria-label="ছবি মুছুন">✕</button>
+                        </div>
+                        <input type="file" id="entryCardPhotoFile" accept="image/*" style="display:none" onchange="pickEntryPhoto(event,'card')">
+                    </div>
+                </div>
+                <p class="em-note" style="padding-top:10px">ছবি অটোমেটিক ২০ KB-এর মধ্যে ছোট হয়ে সেভ হবে</p>
+            </section>
+
+            <section class="em-section">
+                <div class="em-section-title"><span>👤</span> ব্যক্তিগত তথ্য</div>
+                <div class="em-grid">
+                    <div class="em-field">
+                        <label for="entryCardNo">কার্ড নম্বর <i class="em-req">*</i></label>
+                        <div class="em-input"><span class="em-ico">🪪</span><input type="text" id="entryCardNo" placeholder="যেমন: SHC-2024-001" autocomplete="off" required></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryName">নাম <i class="em-req">*</i></label>
+                        <div class="em-input"><span class="em-ico">👤</span><input type="text" id="entryName" placeholder="নাম লিখুন" autocomplete="off" required></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryFatherName">পিতার নাম</label>
+                        <div class="em-input"><span class="em-ico">👨</span><input type="text" id="entryFatherName" placeholder="পিতার নাম" autocomplete="off"></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryMotherName">মাতার নাম</label>
+                        <div class="em-input"><span class="em-ico">👩</span><input type="text" id="entryMotherName" placeholder="মাতার নাম" autocomplete="off"></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryNID">জাতীয় পরিচয়পত্র (NID) <i class="em-req">*</i></label>
+                        <div class="em-input"><span class="em-ico">🆔</span><input type="text" id="entryNID" placeholder="NID নম্বর" autocomplete="off" inputmode="numeric" required></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryMobile">মোবাইল নম্বর</label>
+                        <div class="em-input"><span class="em-ico">📱</span><input type="tel" id="entryMobile" placeholder="01712345678" autocomplete="off" inputmode="tel"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="em-section">
+                <div class="em-section-title"><span>📍</span> ঠিকানা</div>
+                <div class="em-grid">
+                    <div class="em-field">
+                        <label for="entryVillage">গ্রাম</label>
+                        <div class="em-input"><span class="em-ico">🏡</span><input type="text" id="entryVillage" placeholder="গ্রামের নাম" autocomplete="off"></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryBlock">ব্লক</label>
+                        <div class="em-input"><span class="em-ico">🧱</span><input type="text" id="entryBlock" placeholder="ব্লকের নাম" autocomplete="off"></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryWard">ওয়ার্ড নম্বর</label>
+                        <div class="em-input"><span class="em-ico">#️⃣</span><input type="text" id="entryWard" placeholder="ওয়ার্ড নম্বর" autocomplete="off"></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryMouza">মৌজা</label>
+                        <div class="em-input"><span class="em-ico">🗺️</span><input type="text" id="entryMouza" placeholder="মৌজার নাম" autocomplete="off"></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryUnion">ইউনিয়ন</label>
+                        <div class="em-input"><span class="em-ico">🏛️</span><input type="text" id="entryUnion" placeholder="ইউনিয়নের নাম" autocomplete="off"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="em-section">
+                <div class="em-section-title"><span>🌾</span> জমির তথ্য</div>
+                <div class="em-grid em-grid-3">
+                    <div class="em-field">
+                        <label for="entryLand">জমির পরিমাণ (মোট)</label>
+                        <div class="em-input"><span class="em-ico">📏</span><input type="text" id="entryLand" placeholder="যেমন: 2 বিঘা" autocomplete="off"></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryOwnLand">নিজস্ব জমি</label>
+                        <div class="em-input"><span class="em-ico">🟩</span><input type="text" id="entryOwnLand" placeholder="নিজস্ব জমির পরিমাণ" autocomplete="off"></div>
+                    </div>
+                    <div class="em-field">
+                        <label for="entryRentLand">বর্গা জমি</label>
+                        <div class="em-input"><span class="em-ico">🟨</span><input type="text" id="entryRentLand" placeholder="বর্গা জমির পরিমাণ" autocomplete="off"></div>
+                    </div>
+                </div>
+            </section>
+            <p class="em-note"><i class="em-req">*</i> চিহ্নিত ঘরগুলো পূরণ করা বাধ্যতামূলক</p>
+        </div>
+
+        <div class="em-footer">
+            <button class="em-btn em-btn-cancel" onclick="closeEntryForm()">বাতিল</button>
+            <button class="em-btn em-btn-save" onclick="saveNewEntry()">✅ সেভ করুন</button>
+        </div>
+    </div>
+</div>
+
+<!-- অ্যাডমিন ইউজার ম্যানেজমেন্ট মডাল -->
+<div id="approvalModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>ইউজার ও অ্যাক্টিভেশন ম্যানেজমেন্ট</h2>
+            <button class="close-modal" onclick="closeApprovalModal()">✕</button>
+        </div>
+        <div class="modal-body" id="approvalListContainer"></div>
+    </div>
+</div>
+
+<!-- ডাটা ভিউ মডাল -->
+<div id="dataViewModal" class="modal data-view-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>📊 সব অনলাইন ডাটা (<span id="dataViewCount">0</span> টি)</h2>
+            <button class="close-modal" onclick="closeDataViewModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="data-table-container">
+                <table class="data-table" id="dataViewTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>কার্ড নং</th>
+                            <th>নাম</th>
+                            <th>NID</th>
+                            <th>পিতার নাম</th>
+                            <th>মাতার নাম</th>
+                            <th>মোবাইল</th>
+                            <th>গ্রাম</th>
+                            <th>ব্লক</th>
+                            <th>ওয়ার্ড</th>
+                            <th>ইউনিয়ন</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataViewTableBody">
+                        <tr><td colspan="11" style="text-align:center; padding:20px;">লোড হচ্ছে...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- তথ্য সংশোধন মডাল -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>✏️ তথ্য সংশোধন করুন</h2>
+            <button class="close-modal" onclick="closeEditForm()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>📷 ছবি (অটোমেটিক ২০ KB-এর মধ্যে ছোট হবে)</label>
+                <div class="em-photos">
+                    <div class="em-ph">
+                        <label class="em-ph-t">কৃষকের ছবি</label>
+                        <div class="em-ph-box" id="editPhotoBox" onclick="document.getElementById('editPhotoFile').click()">
+                            <div class="ph-empty"><div class="ph-ico">🧑‍🌾</div>ছবি যোগ করুন</div>
+                            <button type="button" class="em-ph-rm" onclick="event.stopPropagation(); removeEditPhoto('farmer')" aria-label="ছবি মুছুন">✕</button>
+                        </div>
+                        <input type="file" id="editPhotoFile" accept="image/*" style="display:none" onchange="pickEditPhoto(event,'farmer')">
+                    </div>
+                    <div class="em-ph">
+                        <label class="em-ph-t">কার্ডের ছবি</label>
+                        <div class="em-ph-box" id="editCardPhotoBox" onclick="document.getElementById('editCardPhotoFile').click()">
+                            <div class="ph-empty"><div class="ph-ico">🪪</div>কার্ডের ছবি যোগ করুন</div>
+                            <button type="button" class="em-ph-rm" onclick="event.stopPropagation(); removeEditPhoto('card')" aria-label="ছবি মুছুন">✕</button>
+                        </div>
+                        <input type="file" id="editCardPhotoFile" accept="image/*" style="display:none" onchange="pickEditPhoto(event,'card')">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group"><label>কার্ড নম্বর *</label><input type="text" id="editCardNo" required></div>
+            <div class="form-group"><label>নাম *</label><input type="text" id="editName" required></div>
+            <div class="form-group"><label>পিতার নাম</label><input type="text" id="editFatherName"></div>
+            <div class="form-group"><label>মাতার নাম</label><input type="text" id="editMotherName"></div>
+            <div class="form-group"><label>জাতীয় পরিচয়পত্র (NID) *</label><input type="text" id="editNID" required></div>
+            <div class="form-group"><label>মোবাইল নম্বর</label><input type="tel" id="editMobile"></div>
+            <div class="form-group"><label>গ্রাম</label><input type="text" id="editVillage"></div>
+            <div class="form-group"><label>ব্লক</label><input type="text" id="editBlock"></div>
+            <div class="form-group"><label>ওয়ার্ড নম্বর</label><input type="text" id="editWard"></div>
+            <div class="form-group"><label>মৌজা</label><input type="text" id="editMouza"></div>
+            <div class="form-group"><label>ইউনিয়ন</label><input type="text" id="editUnion"></div>
+            <div class="form-group"><label>জমির পরিমাণ (মোট)</label><input type="text" id="editLand"></div>
+            <div class="form-group"><label>নিজস্ব জমি</label><input type="text" id="editOwnLand"></div>
+            <div class="form-group"><label>বর্গা জমি</label><input type="text" id="editRentLand"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel-entry" onclick="closeEditForm()">বাতিল</button>
+            <button class="btn-save-entry" onclick="saveEditedEntry()">✅ সংশোধন সেভ করুন</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 🔥 Firebase Configuration (সম্পূর্ণ কনফিগারেশন)
+    const firebaseConfig = {
+        apiKey: "AIzaSyAw2ANLFVNmW6MR5n3CD5eanHomXA_RkSU",
+        authDomain: "soilcardapp.firebaseapp.com",
+        databaseURL: "https://soilcardapp-default-rtdb.firebaseio.com",
+        projectId: "soilcardapp",
+        storageBucket: "soilcardapp.firebasestorage.app",
+        messagingSenderId: "696003841849",
+        appId: "1:696003841849:web:a050ab2b746dc111f862e8",
+        measurementId: "G-5WDYR1F5SR"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // গ্লোবাল ভেরিয়েবল
+    let rawSheetData = [];
+    let matchedResults = [];
+    let currentCardIndex = 0;
+    let currentUser = null;
+    let registeredUsers = [];
+
+    // ---- সেশন পারসিস্টেন্স (page reload দিলেও লগইন থাকবে) ----
+    const SESSION_KEY = 'soilCardSession';
+
+    function saveSession(user) {
+        try {
+            localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+        } catch (e) {
+            console.error('সেশন সেভ করা যায়নি:', e);
+        }
+    }
+
+    function loadSession() {
+        try {
+            const raw = localStorage.getItem(SESSION_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function clearSession() {
+        try {
+            localStorage.removeItem(SESSION_KEY);
+        } catch (e) {}
+    }
+
+    function applyLoggedInUI(user) {
+        currentUser = user;
+        document.getElementById('authContainer').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'flex';
+        document.getElementById('currentUserDisplay').innerText = `ইউজার: ${user.name} (${user.role === 'admin' ? 'অ্যাডমিন' : 'সাধারণ ইউজার'})`;
+
+        const adminElements = document.querySelectorAll('.admin-only');
+        if (user.role === 'admin') {
+            adminElements.forEach(el => el.style.display = 'block');
+            updatePendingBadge();
+        } else {
+            adminElements.forEach(el => el.style.display = 'none');
+        }
+    }
+
+    // Firebase থেকে ইউজার লিস্ট সিঙ্ক হওয়ার পর সেভ করা সেশন এখনও বৈধ কিনা যাচাই করে
+    function revalidateSession() {
+        if (!currentUser) return;
+        if (currentUser.userId === defaultAdmin.userId) return;
+
+        const freshUser = registeredUsers.find(u => u.userId === currentUser.userId);
+        if (!freshUser || freshUser.status !== 'approved') {
+            alert('⚠️ আপনার সেশন আর বৈধ নয়। আবার লগইন করুন।');
+            handleLogout();
+            return;
+        }
+        saveSession(freshUser);
+        applyLoggedInUI(freshUser);
+    }
+
+    const defaultAdmin = {
+        userId: "25800",
+        password: "Land@123",
+        name: "Main Admin",
+        role: "admin",
+        status: "approved"
+    };
+
+    // ফায়ারবেস থেকে ইউজার ডাটা রিয়েলটাইম সিঙ্ক
+    let usersSynced = false;
+    let usersSyncError = null;
+
+    function listenToUsers() {
+        db.ref('appUsers').on('value', (snapshot) => {
+            const data = snapshot.val();
+            registeredUsers = [];
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    registeredUsers.push(data[key]);
+                });
+            }
+            if (!registeredUsers.some(u => u.userId === defaultAdmin.userId)) {
+                db.ref('appUsers/' + defaultAdmin.userId).set(defaultAdmin);
+            }
+            usersSynced = true;
+            usersSyncError = null;
+            updateLoginSyncStatus();
+            updatePendingBadge();
+            revalidateSession();
+        }, (error) => {
+            usersSynced = false;
+            usersSyncError = error.message || String(error);
+            console.error('Firebase appUsers sync error:', error);
+            updateLoginSyncStatus();
+        });
+    }
+
+    function updateLoginSyncStatus() {
+        const el = document.getElementById('loginSyncStatus');
+        if (!el) return;
+        if (usersSyncError) {
+            el.innerHTML = '⚠️ ডাটাবেজ সংযোগ ব্যর্থ (Firebase Rules চেক করুন)। ডিফল্ট অ্যাডমিন দিয়ে লগইন করা যাবে।';
+            el.style.color = 'var(--danger-red)';
+        } else if (usersSynced) {
+            el.innerText = '✅ ডাটাবেজ প্রস্তুত';
+            el.style.color = '#16a34a';
+        }
+    }
+
+    // ফায়ারবেস থেকে কার্ড ডাটা রিয়েলটাইম সিঙ্ক
+    let cardDataReadErrorShown = false;
+    function listenToCardData() {
+        document.getElementById('syncStatus').innerText = "অনলাইন ডাটা লোড হচ্ছে...";
+        db.ref('cardData').on('value', (snapshot) => {
+            const data = snapshot.val();
+            rawSheetData = [];
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    rawSheetData.push(data[key]);
+                });
+            }
+            updateDataCount();
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয় (" + rawSheetData.length + " টি রেকর্ড)";
+            statusEl.style.color = '';
+        }, (error) => {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.innerText = "❌ ডাটাবেজ সংযোগ ব্যর্থ: " + (error.message || error);
+            statusEl.style.color = 'var(--danger-red)';
+            console.error('Firebase cardData sync error:', error);
+            if (!cardDataReadErrorShown) {
+                cardDataReadErrorShown = true;
+                alert('⚠️ Firebase Realtime Database থেকে ডাটা পড়া যাচ্ছে না!\n\nকারণ: ' + (error.message || error) + '\n\nফলে আপলোড করা এক্সেলের ডাটা "সেভ" হলেও তা পরে দেখানো/ডাউনলোড করা যাচ্ছে না।\n\nসমাধান: Firebase Console → Realtime Database → Rules ট্যাবে গিয়ে অন্তত সাময়িকভাবে এভাবে সেট করুন:\n{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}\nতারপর Publish করুন।');
+            }
+        });
+    }
+
+    function switchAuthTab(tab) {
+        const tabs = document.querySelectorAll('.auth-tab-btn');
+        tabs.forEach(t => t.classList.remove('active'));
+        document.getElementById('loginForm').classList.remove('active');
+        document.getElementById('registerForm').classList.remove('active');
+
+        if (tab === 'login') {
+            tabs[0].classList.add('active');
+            document.getElementById('loginForm').classList.add('active');
+        } else {
+            tabs[1].classList.add('active');
+            document.getElementById('registerForm').classList.add('active');
+        }
+    }
+
+    function handleLogin() {
+        const userId = document.getElementById('loginUserId').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
+
+        if (!userId || !password) {
+            alert('❌ ইউজার আইডি এবং পাসওয়ার্ড লিখুন!');
+            return;
+        }
+
+        let user = null;
+        if (userId === defaultAdmin.userId && password === defaultAdmin.password) {
+            user = defaultAdmin;
+        } else {
+            user = registeredUsers.find(u => u.userId === userId && u.password === password);
+        }
+
+        if (!user) {
+            if (usersSyncError) {
+                alert('⚠️ Firebase ডাটাবেজের সাথে সংযোগ করা যায়নি!\n\nকারণ: ' + usersSyncError + '\n\nসম্ভবত Firebase Console → Realtime Database → Rules-এ read/write বন্ধ (false) করা আছে। ডিফল্ট অ্যাডমিন (User ID: 25800) দিয়ে লগইন করে চেক করুন, অথবা Rules খুলে দিন।');
+            } else if (!usersSynced) {
+                alert('⏳ ইউজার ডাটা এখনো সিঙ্ক হচ্ছে, কয়েক সেকেন্ড অপেক্ষা করে আবার চেষ্টা করুন।');
+            } else {
+                alert('❌ ভুল ইউজার আইডি বা পাসওয়ার্ড!');
+            }
+            return;
+        }
+
+        if (user.status !== 'approved') {
+            alert('⏳ আপনার একাউন্টটি এখনো অ্যাডমিন দ্বারা অ্যাপ্রুভ করা হয়নি!');
+            return;
+        }
+
+        saveSession(user);
+        applyLoggedInUI(user);
+    }
+
+    function handleRegister() {
+        const name = document.getElementById('regName').value.trim();
+        const userId = document.getElementById('regUserId').value.trim();
+        const password = document.getElementById('regPassword').value.trim();
+
+        if (!name || !userId || !password) {
+            alert('❌ সব ঘর পূরণ করুন!');
+            return;
+        }
+
+        if (registeredUsers.some(u => u.userId === userId)) {
+            alert('❌ এই ইউজার আইডি ইতিমধ্যে ব্যবহার করা হয়েছে!');
+            return;
+        }
+
+        const newUser = {
+            name: name,
+            userId: userId,
+            password: password,
+            role: "user",
+            status: "pending"
+        };
+
+        db.ref('appUsers/' + userId).set(newUser).then(() => {
+            alert('✅ রেজিস্ট্রেশন সফল হয়েছে! অ্যাডমিন অ্যাপ্রুভ করলে যেকোনো ডিভাইস থেকে লগইন করতে পারবেন।');
+            switchAuthTab('login');
+        }).catch((error) => {
+            console.error('Firebase register error:', error);
+            alert('❌ রেজিস্ট্রেশন ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Rules-এ write অনুমতি বন্ধ আছে।');
+        });
+    }
+
+    function handleLogout() {
+        currentUser = null;
+        clearSession();
+        document.getElementById('loginUserId').value = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('appContainer').style.display = 'none';
+        document.getElementById('authContainer').style.display = 'block';
+    }
+
+    function updatePendingBadge() {
+        const pending = registeredUsers.filter(u => u.status === 'pending');
+        document.getElementById('pendingCount').innerText = pending.length;
+    }
+
+    function openApprovalModal() {
+        const pendingUsers = registeredUsers.filter(u => u.status === 'pending');
+        const activeUsers = registeredUsers.filter(u => u.status === 'approved');
+        const listContainer = document.getElementById('approvalListContainer');
+        listContainer.innerHTML = '';
+
+        const pendingTitle = document.createElement('div');
+        pendingTitle.className = 'section-title';
+        pendingTitle.innerText = `⏳ নতুন রেজিস্ট্রেশন রিকোয়েস্ট (${pendingUsers.length})`;
+        listContainer.appendChild(pendingTitle);
+
+        if (pendingUsers.length === 0) {
+            listContainer.innerHTML += '<p style="font-size:12px; color:#666; margin-bottom:12px;">কোনো প্যান্ডিং আবেদন নেই।</p>';
+        } else {
+            pendingUsers.forEach(u => {
+                const item = document.createElement('div');
+                item.className = 'user-card';
+                item.innerHTML = `
+                    <div class="user-card-header">
+                        <strong>${u.name}</strong>
+                    </div>
+                    <div class="user-card-details">
+                        <b>User ID:</b> ${u.userId} | <b>Password:</b> ${u.password}
+                    </div>
+                    <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
+                        <select id="role_${u.userId}" style="flex: 1; padding: 6px 10px; border: 1.5px solid #d1d5db; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                            <option value="user">👤 Viewer (শুধু দেখতে পারবে)</option>
+                            <option value="admin">👑 Admin (সব করতে পারবে)</option>
+                        </select>
+                        <button class="btn-approve" onclick="approveUserWithRole('${u.userId}')">Approve</button>
+                        <button class="btn-reject" onclick="rejectUser('${u.userId}')">Reject</button>
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        const activeTitle = document.createElement('div');
+        activeTitle.className = 'section-title';
+        activeTitle.innerText = `✅ সক্রিয় ইউজার তালিকা (${activeUsers.length} জন)`;
+        listContainer.appendChild(activeTitle);
+
+        activeUsers.forEach(u => {
+            const item = document.createElement('div');
+            item.className = 'user-card';
+            item.innerHTML = `
+                <div class="user-card-header">
+                    <strong>${u.name} ${u.role === 'admin' ? '(👑 Admin)' : ''}</strong>
+                    ${u.role !== 'admin' ? `<button class="btn-reject" onclick="deleteUser('${u.userId}')">মুছে ফেলুন</button>` : ''}
+                </div>
+                <div class="user-card-details">
+                    🔑 <b>User ID:</b> ${u.userId} &nbsp;|&nbsp; 🔒 <b>Password:</b> ${u.password}
+                </div>
+            `;
+            listContainer.appendChild(item);
+        });
+
+        document.getElementById('approvalModal').style.display = 'block';
+    }
+
+    function closeApprovalModal() {
+        document.getElementById('approvalModal').style.display = 'none';
+    }
+
+    function openDataViewModal() {
+        document.getElementById('dataViewModal').style.display = 'block';
+        document.getElementById('dataViewCount').innerText = rawSheetData.length;
+
+        const tbody = document.getElementById('dataViewTableBody');
+        tbody.innerHTML = '';
+
+        if (rawSheetData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:#999;">কোনো ডাটা নেই</td></tr>';
+            return;
+        }
+
+        if (rawSheetData.length > 0) {
+            console.log('📊 প্রথম রেকর্ডের সব কলাম:', Object.keys(rawSheetData[0]));
+            console.log('📊 প্রথম রেকর্ডের ডাটা:', rawSheetData[0]);
+        }
+
+        rawSheetData.forEach((item, index) => {
+            const row = document.createElement('tr');
+            let cardNo = getFieldValue(item, ['কাড নং', 'কাড', 'কার্ড', 'card', 'ক্রমিক']);
+            const name = getFieldValue(item, ['নাম', 'name']);
+            const nid = getFieldValue(item, ['NID', 'জাতীয় পরিচয়পত্র', 'পরিচয়পত্র']);
+            const father = getFieldValue(item, ['পিতার নাম', 'পিতা', 'father']);
+            const mother = getFieldValue(item, ['মাতার নাম', 'মাতা', 'mother']);
+            const mobile = getFieldValue(item, ['মোবাইল নং', 'মোবাইল', 'mobile', 'phone']);
+            const village = getFieldValue(item, ['গ্রাম', 'village']);
+            const block = getFieldValue(item, ['ব্লক', 'block']);
+            const ward = getFieldValue(item, ['ওয়ার্ড নং', 'ওয়ার্ড', 'ward']);
+            const union = getFieldValue(item, ['ইউনিয়ন', 'union']);
+
+            // কার্ড নম্বর থেকে $ সাইন মুছে ফেলা
+            cardNo = cardNo.replace(/\$/g, '');
+
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${cardNo}</td>
+                <td>${name}</td>
+                <td>${nid}</td>
+                <td>${father}</td>
+                <td>${mother}</td>
+                <td>${mobile}</td>
+                <td>${village}</td>
+                <td>${block}</td>
+                <td>${ward}</td>
+                <td>${union}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    function closeDataViewModal() {
+        document.getElementById('dataViewModal').style.display = 'none';
+    }
+
+    function approveUser(userId) {
+        db.ref('appUsers/' + userId + '/status').set('approved').then(() => {
+            alert(`✅ আবেদন অ্যাপ্রুভ করা হয়েছে!`);
+            openApprovalModal();
+        }).catch((error) => {
+            console.error('Firebase approve error:', error);
+            alert('❌ অ্যাপ্রুভ ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
+        });
+    }
+
+    function approveUserWithRole(userId) {
+        const roleSelect = document.getElementById('role_' + userId);
+        if (!roleSelect) {
+            alert('❌ Role সিলেক্ট করা যায়নি!');
+            return;
+        }
+
+        const selectedRole = roleSelect.value; // 'admin' or 'user'
+
+        db.ref('appUsers/' + userId).update({
+            status: 'approved',
+            role: selectedRole
+        }).then(() => {
+            const roleName = selectedRole === 'admin' ? 'Admin (সব করতে পারবে)' : 'Viewer (শুধু দেখতে পারবে)';
+            alert(`✅ আবেদন অ্যাপ্রুভ করা হয়েছে!\n\nRole: ${roleName}`);
+            openApprovalModal();
+        }).catch((error) => {
+            console.error('Firebase approve error:', error);
+            alert('❌ অ্যাপ্রুভ ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
+        });
+    }
+
+    function rejectUser(userId) {
+        db.ref('appUsers/' + userId).remove().then(() => {
+            alert('❌ আবেদনটি বাতিল করা হয়েছে!');
+            openApprovalModal();
+        }).catch((error) => {
+            console.error('Firebase reject error:', error);
+            alert('❌ কাজটি ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
+        });
+    }
+
+    function deleteUser(userId) {
+        if (confirm('আপনি কি এই ইউজারকে মুছে ফেলতে চান?')) {
+            db.ref('appUsers/' + userId).remove().then(() => {
+                alert('✅ ইউজার মুছে ফেলা হয়েছে!');
+                openApprovalModal();
+            }).catch((error) => {
+                console.error('Firebase delete user error:', error);
+                alert('❌ মুছে ফেলা ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
+            });
+        }
+    }
+
+    function banglaToEnglishDigits(str) {
+        if (!str) return '';
+        const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+        let result = String(str).replace(/[০-৯]/g, d => banglaDigits.indexOf(d));
+        result = result.replace(/\.0+$/, '');
+        return result;
+    }
+
+    function updateDataCount() {
+        document.getElementById('totalRecordCount').innerText = rawSheetData.length;
+    }
+
+    function clearStoredData() {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন ডাটা মুছতে পারবেন!");
+            return;
+        }
+
+        if (confirm('সব ডাটা অনলাইন থেকে মুছে ফেলতে চান? এতে কোনো ইউজারই আর ডাটা দেখতে পাবে না।')) {
+            db.ref('cardData').remove().then(() => {
+                alert('✅ অনলাইন থেকে সব ডাটা মুছে ফেলা হয়েছে!');
+            }).catch((error) => {
+                console.error('Firebase clear data error:', error);
+                alert('❌ ডাটা মুছতে ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error));
+            });
+        }
+    }
+
+    async function handleFileUpload(event) {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন এক্সেল ফাইল আপলোড করতে পারবেন!");
+            return;
+        }
+
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+
+        let newlyAddedData = [];
+
+        for (let f = 0; f < files.length; f++) {
+            const file = files[f];
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data, { type: 'array', cellText: true, raw: false });
+
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "" });
+
+                console.log(`📋 শীট "${sheetName}" এ মোট ${rows.length} টি রো আছে`);
+
+                let extractedBlockName = "";
+                let extractedWardName = "";
+                let headerIndex = -1;
+
+                for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                    if (rows[i] && rows[i].length > 0) {
+                        const firstCell = String(rows[i][0] || '').trim();
+                        if (firstCell.includes("ব্লক")) {
+                            extractedBlockName = firstCell;
+                        }
+                        if (firstCell.includes("ওয়ার্ড") && firstCell.length < 30) {
+                            extractedWardName = firstCell;
+                        }
+
+                        const hasName = rows[i].some(c => String(c || '').trim() === "নাম");
+                        const hasFatherName = rows[i].some(c => String(c || '').trim().includes("পিতার নাম"));
+
+                        if (hasName && hasFatherName) {
+                            headerIndex = i;
+                            console.log(`✅ হেডার রো পাওয়া গেছে index ${i}`);
+                            console.log('হেডার:', rows[i].slice(0, 8));
+                            break;
+                        }
+                    }
+                }
+
+                if (headerIndex !== -1) {
+                    const headers = rows[headerIndex].map(h => String(h || '').trim());
+
+                    let dataStartRow = headerIndex + 1;
+                    const nextRow = rows[headerIndex + 1];
+
+                    if (nextRow) {
+                        const nextRowText = nextRow.map(c => String(c || '').trim()).join('|');
+                        if (nextRowText.includes('নিজস্ব') || nextRowText.includes('বর্গা')) {
+                            console.log('সাব-হেডার পাওয়া গেছে');
+                            headers.forEach((h, colIdx) => {
+                                const subVal = String(nextRow[colIdx] || '').trim();
+                                if ((!h || h === '') && subVal) {
+                                    headers[colIdx] = subVal;
+                                }
+                            });
+                            dataStartRow = headerIndex + 2;
+                        }
+                    }
+
+                    console.log('📌 চূড়ান্ত হেডার:', headers);
+                    console.log(`📊 ডেটা শুরু রো: ${dataStartRow}`);
+
+                    let validRowCount = 0;
+                    for (let i = dataStartRow; i < rows.length; i++) {
+                        if (rows[i]) {
+                            let rowObj = {};
+                            let hasData = false;
+
+                            headers.forEach((h, colIdx) => {
+                                if (h && h !== '') {
+                                    const cellValue = rows[i][colIdx];
+                                    let val = cellValue !== undefined && cellValue !== null ? String(cellValue).trim() : "";
+
+                                    // সব কলাম থেকে $ সাইন মুছে ফেলা
+                                    if (val) {
+                                        val = val.replace(/\$/g, '');
+                                    }
+
+                                    rowObj[h] = val;
+                                    if (val && val !== '' && val !== '-' && val.toLowerCase() !== 'nan') {
+                                        hasData = true;
+                                    }
+                                }
+                            });
+
+                            if (extractedBlockName && !rowObj["ব্লক"]) {
+                                rowObj["ব্লক"] = extractedBlockName;
+                            }
+                            if (extractedWardName && !rowObj["ওয়ার্ড"] && !rowObj["ওয়ার্ড নং"]) {
+                                rowObj["ওয়ার্ড"] = extractedWardName;
+                            }
+
+                            if (hasData) {
+                                newlyAddedData.push(rowObj);
+                                validRowCount++;
+                            }
+                        }
+                    }
+                    console.log(`✅ শীট "${sheetName}" থেকে ${validRowCount} টি বৈধ রো পাওয়া গেছে`);
+                } else {
+                    console.log('⚠️ হেডার রো খুঁজে পাওয়া যায়নি');
+                }
+            });
+        }
+
+        if (newlyAddedData.length === 0) {
+            document.getElementById('syncStatus').innerText = "❌ ফাইলে কোনো তথ্য পাওয়া যায়নি";
+            document.getElementById('syncStatus').style.color = 'var(--danger-red)';
+            alert('❌ এই ফাইল থেকে কোনো তথ্য পড়া যায়নি!\n\nসম্ভবত হেডার সারিতে "কার্ড", "কাড" বা "জাতীয় পরিচয়পত্র"/"NID" লেখা কোনো কলাম খুঁজে পাওয়া যায়নি, অথবা হেডারের নিচের সব সারি খালি।\n\nফাইলের ফরম্যাট চেক করুন।');
+            event.target.value = '';
+            return;
+        }
+
+        document.getElementById('syncStatus').innerText = "অনলাইনে ডাটা আপলোড হচ্ছে...";
+        const updates = {};
+        newlyAddedData.forEach(item => {
+            const newKey = db.ref().child('cardData').push().key;
+            updates['/cardData/' + newKey] = item;
+        });
+
+        db.ref().update(updates).then(() => {
+            document.getElementById('syncStatus').innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
+            document.getElementById('syncStatus').style.color = '';
+            alert(`✅ ${newlyAddedData.length} টি রেকর্ড সফলভাবে অনলাইনে আপলোড হয়েছে! এখন যেকোনো ডিভাইস থেকে সবাই দেখতে পাবে।`);
+            event.target.value = '';
+        }).catch((error) => {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.innerText = "❌ আপলোড ব্যর্থ: " + (error.message || error);
+            statusEl.style.color = 'var(--danger-red)';
+            console.error('Firebase upload error:', error);
+            alert('❌ আপলোড ব্যর্থ হয়েছে! এই কারণেই আপলোড করা ডাটা "হারিয়ে যাচ্ছে" মনে হচ্ছে।\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Console → Realtime Database → Rules-এ write বন্ধ (false) করা আছে। Rules-এ ".write": true করে দিন।');
+            event.target.value = '';
+        });
+    }
+
+    function switchSearchTab(tab) {
+        const tabs = ['nid', 'card', 'mobile', 'name'];
+        const tabBtns = document.querySelectorAll('.search-tab-btn');
+        tabBtns.forEach(btn => btn.classList.remove('active'));
+
+        tabs.forEach((t, i) => {
+            const group = document.getElementById(t + 'SearchGroup');
+            if (t === tab) {
+                tabBtns[i].classList.add('active');
+                group.classList.add('active');
+            } else {
+                group.classList.remove('active');
+            }
+        });
+
+        document.getElementById('resultCard').style.display = 'none';
+        document.getElementById('noDataMsg').style.display = 'none';
+        document.getElementById('duplicateAlert').style.display = 'none';
+    }
+
+    function searchByNID() {
+        const searchVal = document.getElementById('nidInput').value.trim();
+        performSearch(searchVal, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+    }
+
+    function searchByCard() {
+        const searchVal = document.getElementById('cardInput').value.trim();
+        performSearch(searchVal, ['কাড', 'কার্ড', 'card', 'ক্রমিক']);
+    }
+
+    [['nidInput', 'searchByNID'], ['cardInput', 'searchByCard'], ['mobileInput', 'searchByMobile'], ['nameInput', 'searchByName']].forEach(([id, fn]) => {
+        document.getElementById(id).addEventListener('keydown', e => {
+            if (e.key === 'Enter') window[fn]();
+        });
+    });
+
+    function searchByMobile() {
+        const searchVal = document.getElementById('mobileInput').value.trim();
+        performSearch(searchVal, ['মোবাইল', 'mobile', 'phone']);
+    }
+
+    function searchByName() {
+        const searchVal = document.getElementById('nameInput').value.trim();
+        // পিতা/মাতা/গ্রাম ইত্যাদির "নাম" কলাম বাদ দিয়ে শুধু কৃষকের নাম কলামে খোঁজা
+        performSearch(searchVal, ['নাম', 'name'], ['পিতা', 'মাতা', 'father', 'mother', 'স্বামী', 'ব্লক', 'block', 'গ্রাম', 'village', 'মৌজা', 'mouza', 'ইউনিয়ন', 'union', 'ব্যাংক', 'bank']);
+    }
+
+    function performSearch(searchVal, fieldsToSearch, excludeFields = []) {
+        const resultCard = document.getElementById('resultCard');
+        const noDataMsg = document.getElementById('noDataMsg');
+        const duplicateAlert = document.getElementById('duplicateAlert');
+
+        if (!searchVal) {
+            alert('অনুগ্রহ করে সঠিক তথ্য দিন!');
+            return;
+        }
+
+        const normalizedSearchVal = banglaToEnglishDigits(searchVal).replace(/[\s\-_]/g, '').toLowerCase();
+
+        console.log('🔍 Searching for:', normalizedSearchVal);
+        console.log('📊 Total records:', rawSheetData.length);
+
+        matchedResults = rawSheetData.filter(item => {
+            return Object.keys(item).some(key => {
+                const normalizedKey = key.toLowerCase();
+                const isMatchingKey = fieldsToSearch.some(field => normalizedKey.includes(field.toLowerCase()))
+                    && !excludeFields.some(ex => normalizedKey.includes(ex.toLowerCase()));
+
+                if (isMatchingKey) {
+                    const val = item[key];
+                    if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).toLowerCase() !== 'nan') {
+                        const itemVal = banglaToEnglishDigits(String(val)).replace(/[\s\-_]/g, '').toLowerCase();
+                        console.log(`  Checking ${key}: "${itemVal}" vs "${normalizedSearchVal}"`);
+                        return itemVal.includes(normalizedSearchVal);
+                    }
+                }
+                return false;
+            });
+        });
+
+        console.log('✅ Found matches:', matchedResults.length);
+
+        if (matchedResults.length > 0) {
+            currentCardIndex = 0;
+            noDataMsg.style.display = 'none';
+
+            if (matchedResults.length > 1) {
+                duplicateAlert.style.display = 'block';
+                duplicateAlert.innerHTML = `⚠️ <strong>${matchedResults.length}টি</strong> ম্যাচ পাওয়া গেছে।`;
+            } else {
+                duplicateAlert.style.display = 'none';
+            }
+
+            renderCard();
+            resultCard.style.display = 'block';
+        } else {
+            resultCard.style.display = 'none';
+            duplicateAlert.style.display = 'none';
+            noDataMsg.style.display = 'block';
+        }
+    }
+
+    function getFieldValue(item, keys, excludeKeys) {
+        for (let k of Object.keys(item)) {
+            if (excludeKeys && excludeKeys.some(ex => k.toLowerCase().includes(ex.toLowerCase()))) continue;
+            if (keys.some(key => k.toLowerCase().includes(key.toLowerCase()))) {
+                const val = item[k];
+                if (val !== undefined && val !== null && val !== '' && String(val).trim() !== '' && String(val).toLowerCase() !== 'nan') {
+                    return String(val).trim();
+                }
+            }
+        }
+        return "-";
+    }
+
+    function renderCard() {
+        const item = matchedResults[currentCardIndex];
+        const isDuplicate = matchedResults.length > 1;
+
+        // ব্লক নাম + কার্ড নম্বর একসাথে দেখানো
+        const blockName = getFieldValue(item, ['ব্লক', 'block']);
+        let cardNo = getFieldValue(item, ['কাড', 'কার্ড', 'card', 'ক্রমিক']);
+
+        // কার্ড নম্বর থেকে $ সাইন মুছে ফেলা
+        cardNo = cardNo.replace(/\$/g, '').trim();
+
+        // "ব্লক" শব্দ সরিয়ে শুধু নাম রাখা (যেমন: "কালমেঘ ব্লক" -> "কালমেঘ")
+        let cleanBlockName = blockName.replace(/\s*ব্লক\s*/gi, '').trim();
+        if (cleanBlockName === '-' || cleanBlockName === '') {
+            cleanBlockName = blockName; // যদি ব্লক নাম না থাকে তাহলে আসল ভ্যালু রাখা
+        }
+
+        // ব্লক নাম + কার্ড নম্বর (যেমন: "কালমেঘ ব্লক ১")
+        let displayBlock = cleanBlockName;
+        if (cardNo !== '-' && cardNo !== '') {
+            displayBlock = `${cleanBlockName} ব্লক ${cardNo}`;
+        }
+
+        document.getElementById('resBlock').innerText = displayBlock;
+        document.getElementById('resName').innerText = getFieldValue(item, ['নাম', 'name']);
+
+        const nidElem = document.getElementById('resNidVal');
+        const nidVal = getFieldValue(item, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+        nidElem.innerText = nidVal;
+
+        if(isDuplicate) {
+            nidElem.style.color = 'var(--danger-red)';
+            nidElem.style.fontWeight = 'bold';
+        } else {
+            nidElem.style.color = '#111827';
+            nidElem.style.fontWeight = 'normal';
+        }
+
+        document.getElementById('resFather').innerText = getFieldValue(item, ['পিতা', 'father']);
+        document.getElementById('resMother').innerText = getFieldValue(item, ['মাতা', 'mother']);
+        document.getElementById('resVillage').innerText = getFieldValue(item, ['গ্রাম', 'village']);
+        document.getElementById('resWard').innerText = getFieldValue(item, ['ওয়ার্ড', 'ward']);
+        document.getElementById('resMouza').innerText = getFieldValue(item, ['মৌজা', 'mouza']);
+        document.getElementById('resLand').innerText = getFieldValue(item, ['জমির পরিমাণ', 'মোট', 'land']);
+        document.getElementById('resMobile').innerText = getFieldValue(item, ['মোবাইল', 'mobile', 'phone']);
+        document.getElementById('resUnion').innerText = getFieldValue(item, ['ইউনিয়ন', 'union']);
+
+        updateVisualCard(item, cardNo);
+
+        const pagElem = document.getElementById('cardPagination');
+        if (isDuplicate) {
+            pagElem.style.display = 'flex';
+            document.getElementById('pageIndicator').innerText = `${currentCardIndex + 1} / ${matchedResults.length}`;
+            document.getElementById('prevBtn').disabled = currentCardIndex === 0;
+            document.getElementById('nextBtn').disabled = currentCardIndex === matchedResults.length - 1;
+        } else {
+            pagElem.style.display = 'none';
+        }
+    }
+
+    function changeCard(dir) {
+        currentCardIndex += dir;
+        if (currentCardIndex < 0) currentCardIndex = 0;
+        if (currentCardIndex >= matchedResults.length) currentCardIndex = matchedResults.length - 1;
+        renderCard();
+    }
+
+    function openEntryForm() {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন নতুন ডাটা যুক্ত করতে পারবেন!");
+            return;
+        }
+        document.getElementById('entryModal').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        updateEntryProgress();
+        setTimeout(() => { const el = document.getElementById('entryCardNo'); if (el) el.focus(); }, 150);
+    }
+
+    function closeEntryForm() {
+        document.getElementById('entryModal').style.display = 'none';
+        document.body.style.overflow = '';
+        clearEntryForm();
+    }
+
+    function clearEntryForm() {
+        document.getElementById('entryCardNo').value = '';
+        document.getElementById('entryName').value = '';
+        document.getElementById('entryFatherName').value = '';
+        document.getElementById('entryMotherName').value = '';
+        document.getElementById('entryNID').value = '';
+        document.getElementById('entryMobile').value = '';
+        document.getElementById('entryVillage').value = '';
+        document.getElementById('entryBlock').value = '';
+        document.getElementById('entryWard').value = '';
+        document.getElementById('entryMouza').value = '';
+        document.getElementById('entryUnion').value = '';
+        document.getElementById('entryLand').value = '';
+        document.getElementById('entryOwnLand').value = '';
+        document.getElementById('entryRentLand').value = '';
+        document.querySelectorAll('#entryModal .em-field').forEach(f => f.classList.remove('em-invalid', 'em-valid'));
+        removeEntryPhoto('farmer');
+        removeEntryPhoto('card');
+        updateEntryProgress();
+    }
+
+    // 🗜️ ছবি অটোমেটিক ১০–২০ KB-এর মধ্যে আনা (সর্বোচ্চ ২০ KB)
+    const PHOTO_MAX_BYTES = 20 * 1024;
+    function dataUrlBytes(u) {
+        const b64 = u.slice(u.indexOf(',') + 1);
+        return Math.floor(b64.length * 3 / 4);
+    }
+    function compressImageToKB(img, startMax, maxBytes) {
+        maxBytes = maxBytes || PHOTO_MAX_BYTES;
+        let scale = Math.min(1, startMax / Math.max(img.width, img.height));
+        let best = '';
+        for (let round = 0; round < 12; round++) {
+            const w = Math.max(24, Math.round(img.width * scale));
+            const h = Math.max(24, Math.round(img.height * scale));
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+            // এই মাপে সবচেয়ে ভালো কোয়ালিটি খোঁজা (বাইনারি সার্চ)
+            let lo = 0.35, hi = 0.92, fit = '';
+            const top = c.toDataURL('image/jpeg', hi);
+            if (dataUrlBytes(top) <= maxBytes) { fit = top; }
+            else {
+                for (let i = 0; i < 7; i++) {
+                    const mid = (lo + hi) / 2;
+                    const u = c.toDataURL('image/jpeg', mid);
+                    if (dataUrlBytes(u) <= maxBytes) { fit = u; lo = mid; } else { hi = mid; }
+                }
+            }
+            if (fit) return fit;
+            best = c.toDataURL('image/jpeg', 0.35);
+            scale *= 0.85; // এখনও বড় হলে ছবির মাপ কমানো
+        }
+        return best;
+    }
+
+    // 📷 নতুন এন্ট্রির ছবি (ছোট করে ডাটাবেজে সেভ হবে)
+    const entryPhotos = { farmer: '', card: '' };
+    const ENTRY_PHOTO_CFG = {
+        farmer: { box: 'entryPhotoBox', max: 600, empty: '<div class="ph-empty"><div class="ph-ico">🧑‍🌾</div>ছবি যোগ করুন</div>', alt: 'কৃষকের ছবি' },
+        card:   { box: 'entryCardPhotoBox', max: 900, empty: '<div class="ph-empty"><div class="ph-ico">🪪</div>কার্ডের ছবি যোগ করুন</div>', alt: 'কার্ডের ছবি' }
+    };
+
+    function renderEntryPhoto(kind) {
+        const cfg = ENTRY_PHOTO_CFG[kind];
+        const box = document.getElementById(cfg.box);
+        const rm = box.querySelector('.em-ph-rm');
+        const data = entryPhotos[kind];
+        box.classList.toggle('has-img', !!data);
+        box.innerHTML = (data ? `<img src="${data}" alt="${cfg.alt}">` : cfg.empty);
+        box.appendChild(rm);
+    }
+
+    function removeEntryPhoto(kind) {
+        entryPhotos[kind] = '';
+        renderEntryPhoto(kind);
+    }
+
+    function pickEntryPhoto(e, kind) {
+        const f = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!f) return;
+        const cfg = ENTRY_PHOTO_CFG[kind];
+        const r = new FileReader();
+        r.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                entryPhotos[kind] = compressImageToKB(img, cfg.max);
+                renderEntryPhoto(kind);
+            };
+            img.onerror = () => alert('❌ ছবিটি পড়া যায়নি, অন্য ছবি দিন।');
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+    }
+
+    // --- নতুন এন্ট্রি ফর্মের UI সহায়ক ফাংশন ---
+    const EM_REQUIRED = ['entryCardNo', 'entryName', 'entryNID'];
+
+    function updateEntryProgress() {
+        const done = EM_REQUIRED.filter(id => document.getElementById(id).value.trim()).length;
+        const bar = document.getElementById('emProgressBar');
+        if (bar) bar.style.width = (done / EM_REQUIRED.length * 100) + '%';
+    }
+
+    document.querySelectorAll('#entryModal input').forEach(inp => {
+        inp.addEventListener('input', () => {
+            const field = inp.closest('.em-field');
+            if (EM_REQUIRED.includes(inp.id)) {
+                field.classList.toggle('em-valid', !!inp.value.trim());
+                if (inp.value.trim()) field.classList.remove('em-invalid');
+            }
+            updateEntryProgress();
+        });
+        inp.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                const all = [...document.querySelectorAll('#entryModal input')];
+                const next = all[all.indexOf(inp) + 1];
+                if (next) { e.preventDefault(); next.focus(); } else { saveNewEntry(); }
+            }
+        });
+    });
+
+    document.getElementById('entryModal').addEventListener('mousedown', e => {
+        if (e.target.id === 'entryModal') closeEntryForm();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && document.getElementById('entryModal').style.display === 'block') closeEntryForm();
+    });
+
+    function saveNewEntry() {
+        const cardNo = document.getElementById('entryCardNo').value.trim();
+        const name = document.getElementById('entryName').value.trim();
+        const nid = document.getElementById('entryNID').value.trim();
+
+        if (!cardNo || !name || !nid) {
+            EM_REQUIRED.forEach(id => {
+                const el = document.getElementById(id);
+                el.closest('.em-field').classList.toggle('em-invalid', !el.value.trim());
+            });
+            const firstEmpty = EM_REQUIRED.map(id => document.getElementById(id)).find(el => !el.value.trim());
+            if (firstEmpty) firstEmpty.focus();
+            alert('❌ কার্ড নম্বর, নাম এবং NID বাধ্যতামূলক!');
+            return;
+        }
+
+        const newEntry = {
+            "কার্ড নম্বর": cardNo,
+            "নাম": name,
+            "পিতার নাম": document.getElementById('entryFatherName').value.trim() || "-",
+            "মাতার নাম": document.getElementById('entryMotherName').value.trim() || "-",
+            "জাতীয় পরিচয়পত্র নম্বর": nid,
+            "মোবাইল নং": document.getElementById('entryMobile').value.trim() || "-",
+            "গ্রাম": document.getElementById('entryVillage').value.trim() || "-",
+            "ব্লক": document.getElementById('entryBlock').value.trim() || "-",
+            "ওয়ার্ড নম্বর": document.getElementById('entryWard').value.trim() || "-",
+            "মৌজা": document.getElementById('entryMouza').value.trim() || "-",
+            "ইউনিয়ন": document.getElementById('entryUnion').value.trim() || "-",
+            "জমির পরিমাণ": document.getElementById('entryLand').value.trim() || "-",
+            "নিজস্ব": document.getElementById('entryOwnLand').value.trim() || "-",
+            "বর্গা": document.getElementById('entryRentLand').value.trim() || "-"
+        };
+        if (entryPhotos.farmer) newEntry["ছবি"] = entryPhotos.farmer;
+        if (entryPhotos.card) newEntry["কার্ডের ছবি"] = entryPhotos.card;
+
+        db.ref('cardData').push(newEntry).then(() => {
+            alert(`✅ নতুন তথ্য অনলাইন ডাটাবেজে সেভ হয়েছে!`);
+            closeEntryForm();
+        }).catch((error) => {
+            console.error('Firebase save entry error:', error);
+            alert('❌ সেভ ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Rules-এ write অনুমতি বন্ধ আছে।');
+        });
+    }
+
+    function downloadExcel() {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন ডাটা ডাউনলোড করতে পারবেন!");
+            return;
+        }
+
+        if (!rawSheetData || rawSheetData.length === 0) {
+            alert('❌ ডাউনলোড করার মতো কোনো তথ্য নেই!');
+            return;
+        }
+
+        // "সব অনলাইন ডাটা" টেবিলের হুবহু একই ফরমেটে (একই কলাম, একই ক্রম, একই মান)
+        const excelRows = rawSheetData.map((item, index) => ({
+            '#': index + 1,
+            'কার্ড নং': getFieldValue(item, ['কাড নং', 'কাড', 'কার্ড', 'card', 'ক্রমিক']).replace(/\$/g, ''),
+            'নাম': getFieldValue(item, ['নাম', 'name']),
+            'NID': getFieldValue(item, ['NID', 'জাতীয় পরিচয়পত্র', 'পরিচয়পত্র']),
+            'পিতার নাম': getFieldValue(item, ['পিতার নাম', 'পিতা', 'father']),
+            'মাতার নাম': getFieldValue(item, ['মাতার নাম', 'মাতা', 'mother']),
+            'মোবাইল': getFieldValue(item, ['মোবাইল নং', 'মোবাইল', 'mobile', 'phone']),
+            'গ্রাম': getFieldValue(item, ['গ্রাম', 'village']),
+            'ব্লক': getFieldValue(item, ['ব্লক', 'block']),
+            'ওয়ার্ড': getFieldValue(item, ['ওয়ার্ড নং', 'ওয়ার্ড', 'ward']),
+            'ইউনিয়ন': getFieldValue(item, ['ইউনিয়ন', 'union'])
+        }));
+        const worksheet = XLSX.utils.json_to_sheet(excelRows, {
+            header: ['#', 'কার্ড নং', 'নাম', 'NID', 'পিতার নাম', 'মাতার নাম', 'মোবাইল', 'গ্রাম', 'ব্লক', 'ওয়ার্ড', 'ইউনিয়ন']
+        });
+        worksheet['!cols'] = [
+            { wch: 6 }, { wch: 12 }, { wch: 24 }, { wch: 18 }, { wch: 24 },
+            { wch: 24 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 10 }, { wch: 16 }
+        ];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Soil_Health_Card");
+        XLSX.writeFile(workbook, "মাটির_স্বাস্থ্য_সুরক্ষা_কার্ড.xlsx");
+    }
+
+    // Edit Entry Functions
+    let currentEditKey = null; // Firebase key of the item being edited
+
+    // 📷 সংশোধন ফর্মের ছবি: undefined = অপরিবর্তিত, '' = মুছে ফেলা, ডাটা = নতুন ছবি
+    const editPhotos = { farmer: undefined, card: undefined };
+    const EDIT_PHOTO_CFG = {
+        farmer: { box: 'editPhotoBox', max: 600, field: 'ছবি', empty: '<div class="ph-empty"><div class="ph-ico">🧑‍🌾</div>ছবি যোগ করুন</div>', alt: 'কৃষকের ছবি' },
+        card:   { box: 'editCardPhotoBox', max: 900, field: 'কার্ডের ছবি', empty: '<div class="ph-empty"><div class="ph-ico">🪪</div>কার্ডের ছবি যোগ করুন</div>', alt: 'কার্ডের ছবি' }
+    };
+    let editPhotoOrig = { farmer: '', card: '' };
+
+    function renderEditPhoto(kind) {
+        const cfg = EDIT_PHOTO_CFG[kind];
+        const box = document.getElementById(cfg.box);
+        const rm = box.querySelector('.em-ph-rm');
+        const data = editPhotos[kind] === undefined ? editPhotoOrig[kind] : editPhotos[kind];
+        box.classList.toggle('has-img', !!data);
+        box.innerHTML = data ? `<img src="${escHtml(data)}" alt="${cfg.alt}">` : cfg.empty;
+        box.appendChild(rm);
+    }
+
+    function removeEditPhoto(kind) {
+        editPhotos[kind] = '';
+        renderEditPhoto(kind);
+    }
+
+    function pickEditPhoto(e, kind) {
+        const f = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                editPhotos[kind] = compressImageToKB(img, EDIT_PHOTO_CFG[kind].max);
+                renderEditPhoto(kind);
+            };
+            img.onerror = () => alert('❌ ছবিটি পড়া যায়নি, অন্য ছবি দিন।');
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+    }
+
+    function openEditForm() {
+        if (currentUser.role !== 'admin') {
+            alert("❌ কেবল অ্যাডমিন তথ্য সংশোধন করতে পারবেন!");
+            return;
+        }
+
+        const item = matchedResults[currentCardIndex];
+        if (!item) {
+            alert("❌ কোনো ডাটা নেই!");
+            return;
+        }
+
+        // Find the Firebase key for this item
+        db.ref('cardData').once('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                // Find matching item by NID
+                const nid = getFieldValue(item, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+                for (let key in data) {
+                    const itemNid = getFieldValue(data[key], ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+                    if (itemNid === nid) {
+                        currentEditKey = key;
+                        break;
+                    }
+                }
+            }
+        });
+
+        // Populate edit form with current values
+        let cardNo = getFieldValue(item, ['কাড', 'কার্ড', 'card', 'ক্রমিক']).replace(/\$/g, '');
+        document.getElementById('editCardNo').value = cardNo;
+        document.getElementById('editName').value = getFieldValue(item, ['নাম', 'name']);
+        document.getElementById('editFatherName').value = getFieldValue(item, ['পিতার নাম', 'পিতা', 'father']);
+        document.getElementById('editMotherName').value = getFieldValue(item, ['মাতার নাম', 'মাতা', 'mother']);
+        document.getElementById('editNID').value = getFieldValue(item, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+        document.getElementById('editMobile').value = getFieldValue(item, ['মোবাইল নং', 'মোবাইল', 'mobile', 'phone']);
+        document.getElementById('editVillage').value = getFieldValue(item, ['গ্রাম', 'village']);
+        document.getElementById('editBlock').value = getFieldValue(item, ['ব্লক', 'block']);
+        document.getElementById('editWard').value = getFieldValue(item, ['ওয়ার্ড নং', 'ওয়ার্ড', 'ward']);
+        document.getElementById('editMouza').value = getFieldValue(item, ['মৌজা', 'mouza']);
+        document.getElementById('editUnion').value = getFieldValue(item, ['ইউনিয়ন', 'union']);
+        document.getElementById('editLand').value = getFieldValue(item, ['জমির পরিমাণ', 'মোট', 'land']);
+        document.getElementById('editOwnLand').value = getFieldValue(item, ['নিজস্ব', 'own']);
+        document.getElementById('editRentLand').value = getFieldValue(item, ['বর্গা', 'rent']);
+
+        // Replace "-" with empty string for better editing
+        const inputs = document.querySelectorAll('#editModal input');
+        inputs.forEach(input => {
+            if (input.value === '-') input.value = '';
+        });
+
+        // বর্তমান ছবি দেখানো
+        editPhotos.farmer = undefined; editPhotos.card = undefined;
+        editPhotoOrig = { farmer: getPhotoUrl(item), card: getCardPhotoUrl(item) };
+        renderEditPhoto('farmer');
+        renderEditPhoto('card');
+
+        document.getElementById('editModal').style.display = 'block';
+    }
+
+    function closeEditForm() {
+        document.getElementById('editModal').style.display = 'none';
+        currentEditKey = null;
+    }
+
+    function saveEditedEntry() {
+        const cardNo = document.getElementById('editCardNo').value.trim();
+        const name = document.getElementById('editName').value.trim();
+        const nid = document.getElementById('editNID').value.trim();
+
+        if (!cardNo || !name || !nid) {
+            alert('❌ কার্ড নম্বর, নাম এবং NID বাধ্যতামূলক!');
+            return;
+        }
+
+        if (!currentEditKey) {
+            alert('❌ Error: কোনো রেকর্ড খুঁজে পাওয়া যায়নি!');
+            return;
+        }
+
+        const updatedEntry = {
+            "কার্ড নম্বর": cardNo,
+            "নাম": name,
+            "পিতার নাম": document.getElementById('editFatherName').value.trim() || "-",
+            "মাতার নাম": document.getElementById('editMotherName').value.trim() || "-",
+            "জাতীয় পরিচয়পত্র নম্বর": nid,
+            "মোবাইল নং": document.getElementById('editMobile').value.trim() || "-",
+            "গ্রাম": document.getElementById('editVillage').value.trim() || "-",
+            "ব্লক": document.getElementById('editBlock').value.trim() || "-",
+            "ওয়ার্ড নম্বর": document.getElementById('editWard').value.trim() || "-",
+            "মৌজা": document.getElementById('editMouza').value.trim() || "-",
+            "ইউনিয়ন": document.getElementById('editUnion').value.trim() || "-",
+            "জমির পরিমাণ": document.getElementById('editLand').value.trim() || "-",
+            "নিজস্ব": document.getElementById('editOwnLand').value.trim() || "-",
+            "বর্গা": document.getElementById('editRentLand').value.trim() || "-"
+        };
+
+        // ছবি: নতুন দিলে সেভ, মুছলে ডাটাবেজ থেকে বাদ, না ছুঁলে অপরিবর্তিত
+        ['farmer', 'card'].forEach(kind => {
+            const v = editPhotos[kind];
+            if (v === undefined) return;
+            updatedEntry[EDIT_PHOTO_CFG[kind].field] = v ? v : null;
+        });
+
+        db.ref('cardData/' + currentEditKey).update(updatedEntry).then(() => {
+            alert(`✅ তথ্য সংশোধন সফলভাবে সেভ হয়েছে!`);
+            closeEditForm();
+            // Refresh the current view
+            setTimeout(() => {
+                const lastSearchedNID = nid;
+                performSearch(lastSearchedNID, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+            }, 500);
+        }).catch((error) => {
+            console.error('Firebase update error:', error);
+            alert('❌ সংশোধন ব্যর্থ হয়েছে!\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Rules-এ write অনুমতি বন্ধ আছে।');
+        });
+    }
+
+    window.addEventListener('load', () => {
+        const savedUser = loadSession();
+        if (savedUser) {
+            applyLoggedInUI(savedUser);
+        }
+        listenToUsers();
+        listenToCardData();
+    });
+
+    // =====================================================
+    // ✨ Modern UI v2 — লাইভ সার্চ সাজেশন, ফটো, কার্ড ইমেজ
+    // =====================================================
+    const SEARCH_CFG = {
+        nid:    { fields: ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র'], exclude: [], input: 'nidInput', min: 4 },
+        card:   { fields: ['কাড', 'কার্ড', 'card', 'ক্রমিক'], exclude: [], input: 'cardInput', min: 2 },
+        mobile: { fields: ['মোবাইল', 'mobile', 'phone'], exclude: [], input: 'mobileInput', min: 4 },
+        name:   { fields: ['নাম', 'name'], exclude: ['পিতা', 'মাতা', 'father', 'mother', 'স্বামী', 'ব্লক', 'block', 'গ্রাম', 'village', 'মৌজা', 'mouza', 'ইউনিয়ন', 'union', 'ব্যাংক', 'bank'], input: 'nameInput', min: 2 }
+    };
+    let activeSearchTab = 'nid';
+    let currentItemShown = null;
+    const localPhotoMap = new WeakMap();
+    const cardPhotoMap = new WeakMap();
+    const AV_COLORS = ['#2e7d32', '#00796b', '#1565c0', '#6a1b9a', '#ad1457', '#ef6c00', '#455a64', '#558b2f'];
+
+    function escHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function avatarColor(name) {
+        let h = 0;
+        for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+        return AV_COLORS[h % AV_COLORS.length];
+    }
+
+    function firstLetter(name) {
+        name = String(name || '').trim();
+        if (!name || name === '-') return '👤';
+        if (window.Intl && Intl.Segmenter) {
+            const seg = new Intl.Segmenter('bn', { granularity: 'grapheme' });
+            for (const s of seg.segment(name)) return s.segment;
+        }
+        return Array.from(name)[0];
+    }
+
+    function getPhotoUrl(item) {
+        if (!item) return '';
+        const local = localPhotoMap.get(item);
+        if (local) return local;
+        const v = getFieldValue(item, ['ছবি', 'photo', 'image', 'pic'], CARD_PHOTO_KEYS);
+        return (/^(https?:\/\/|data:image)/i.test(v)) ? v : '';
+    }
+
+    // 🖼️ কার্ডের ছবি (কৃষকের ছবি থেকে আলাদা)
+    const CARD_PHOTO_KEYS = ['কার্ডের ছবি', 'কার্ড ছবি', 'card_photo', 'card photo', 'cardphoto', 'card_image', 'card image'];
+    function getCardPhotoUrl(item) {
+        if (!item) return '';
+        const local = cardPhotoMap.get(item);
+        if (local) return local;
+        const v = getFieldValue(item, CARD_PHOTO_KEYS);
+        return (/^(https?:\/\/|data:image)/i.test(v)) ? v : '';
+    }
+
+    function avatarHTML(item, name) {
+        const url = getPhotoUrl(item);
+        return url
+            ? `<img src="${escHtml(url)}" crossorigin="anonymous" alt="">`
+            : escHtml(firstLetter(name));
+    }
+
+    // সার্চ ম্যাচ (performSearch-এর মতো একই লজিক, শুধু আলার্ট/লগ ছাড়া)
+    function findMatches(val, cfg) {
+        const q = banglaToEnglishDigits(val).replace(/[\s\-_]/g, '').toLowerCase();
+        if (!q) return [];
+        return rawSheetData.filter(item => Object.keys(item).some(key => {
+            const k = key.toLowerCase();
+            const ok = cfg.fields.some(f => k.includes(f.toLowerCase())) && !cfg.exclude.some(ex => k.includes(ex.toLowerCase()));
+            if (!ok) return false;
+            const v = item[key];
+            if (v === undefined || v === null || String(v).trim() === '' || String(v).toLowerCase() === 'nan') return false;
+            return banglaToEnglishDigits(String(v)).replace(/[\s\-_]/g, '').toLowerCase().includes(q);
+        }));
+    }
+
+    function hideSuggest() {
+        const box = document.getElementById('suggestBox');
+        box.style.display = 'none';
+        box.innerHTML = '';
+    }
+
+    let suggestCache = [];
+    function showSuggest() {
+        const cfg = SEARCH_CFG[activeSearchTab];
+        const val = document.getElementById(cfg.input).value.trim();
+        const clr = document.getElementById('clr_' + cfg.input);
+        if (clr) clr.classList.toggle('show', val.length > 0);
+        if (val.length < cfg.min) { hideSuggest(); return; }
+
+        const all = findMatches(val, cfg);
+        suggestCache = all.slice(0, 6);
+        const box = document.getElementById('suggestBox');
+        if (!suggestCache.length) { hideSuggest(); return; }
+
+        box.innerHTML = `<div class="sx-head">🔎 ${all.length}টি সম্ভাব্য ফলাফল${all.length > 6 ? ' (প্রথম ৬টি)' : ''}</div>` +
+            suggestCache.map((it, i) => {
+                const nm = getFieldValue(it, ['নাম', 'name']);
+                const vil = getFieldValue(it, ['গ্রাম', 'village']);
+                const cn = getFieldValue(it, ['কাড', 'কার্ড', 'card', 'ক্রমিক']).replace(/\$/g, '').trim();
+                const nid = getFieldValue(it, ['জাতীয় পরিচয়পত্র', 'NID', 'পরিচয়পত্র']);
+                return `<div class="sx-item" onclick="pickSuggestion(${i})">
+                    <div class="sx-av" style="background:${avatarColor(nm)}">${avatarHTML(it, nm)}</div>
+                    <div class="sx-txt"><div class="sx-name">${escHtml(nm)}</div>
+                    <div class="sx-sub">${escHtml(vil)} • NID: ${escHtml(nid)}</div></div>
+                    ${cn && cn !== '-' ? `<span class="sx-badge">${escHtml(cn)}</span>` : ''}
+                </div>`;
+            }).join('');
+        box.style.display = 'block';
+    }
+
+    function pickSuggestion(i) {
+        const item = suggestCache[i];
+        if (!item) return;
+        matchedResults = [item];
+        currentCardIndex = 0;
+        document.getElementById('noDataMsg').style.display = 'none';
+        document.getElementById('duplicateAlert').style.display = 'none';
+        hideSuggest();
+        renderCard();
+        const rc = document.getElementById('resultCard');
+        rc.style.display = 'block';
+        rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function clearSearchInput(id) {
+        const el = document.getElementById(id);
+        el.value = '';
+        el.focus();
+        showSuggest();
+    }
+
+    // ইনপুটে টাইপ করলেই সাজেশন, সার্চ বাটন চাপলে সাজেশন বন্ধ
+    Object.values(SEARCH_CFG).forEach(cfg => {
+        const el = document.getElementById(cfg.input);
+        el.addEventListener('input', showSuggest);
+        el.addEventListener('keydown', e => { if (e.key === 'Enter') hideSuggest(); });
+    });
+    document.querySelectorAll('.btn-search').forEach(b => b.addEventListener('click', hideSuggest));
+
+    // ট্যাব পরিবর্তনের সময় ট্র্যাক করা
+    const _origSwitchTab = switchSearchTab;
+    switchSearchTab = function (tab) {
+        activeSearchTab = tab;
+        _origSwitchTab(tab);
+        hideSuggest();
+        const cfg = SEARCH_CFG[tab];
+        const el = document.getElementById(cfg.input);
+        if (el.value.trim().length >= cfg.min) showSuggest();
+    };
+
+    // 🪪 ভিজ্যুয়াল কার্ড আপডেট
+    function updateVisualCard(item, cardNo) {
+        currentItemShown = item;
+        const name = getFieldValue(item, ['নাম', 'name']);
+        document.getElementById('vcCardNo').innerText = (cardNo && cardNo !== '-') ? cardNo : '—';
+
+        const ph = document.getElementById('shcPhoto');
+        const url = getPhotoUrl(item);
+        ph.style.background = url ? '#e5e7eb' : `linear-gradient(135deg, ${avatarColor(name)}, ${avatarColor(name + 'x')})`;
+        ph.innerHTML = avatarHTML(item, name) + '<span class="shc-cam" data-html2canvas-ignore="true">📷</span>';
+
+        const cph = document.getElementById('shcCardPhoto');
+        const curl = getCardPhotoUrl(item);
+        cph.classList.toggle('has-img', !!curl);
+        cph.innerHTML = curl
+            ? `<img src="${escHtml(curl)}" crossorigin="anonymous" alt="কার্ডের ছবি">`
+            : '<div class="cph-empty" data-html2canvas-ignore="true"><span>🪪</span>কার্ডের ছবি<br>যোগ করুন</div>';
+
+        const vil = getFieldValue(item, ['গ্রাম', 'village']);
+        const uni = getFieldValue(item, ['ইউনিয়ন', 'union']);
+        const land = getFieldValue(item, ['জমির পরিমাণ', 'মোট', 'land']);
+        const chips = [];
+        if (vil !== '-') chips.push('🏡 ' + vil);
+        if (uni !== '-') chips.push('🏛️ ' + uni);
+        if (land !== '-') chips.push('🌾 ' + land);
+        document.getElementById('vcChips').innerHTML = chips.map(c => `<span class="shc-chip">${escHtml(c)}</span>`).join('');
+
+        const mob = getFieldValue(item, ['মোবাইল', 'mobile', 'phone']);
+        const call = document.getElementById('callBtn');
+        if (!call) { /* কল বাটন সরানো হয়েছে */ }
+        else if (mob !== '-') {
+            call.href = 'tel:' + banglaToEnglishDigits(mob).replace(/[^\d+]/g, '');
+            call.style.opacity = 1; call.style.pointerEvents = 'auto';
+        } else {
+            call.href = '#'; call.style.opacity = .45; call.style.pointerEvents = 'none';
+        }
+    }
+
+    // 📷 ছবি বেছে নেওয়া (শুধু এই সেশনে কার্ডে দেখাবে/সেভ হবে)
+    function pickLocalPhoto(e) {
+        const f = e.target.files && e.target.files[0];
+        if (!f || !currentItemShown) return;
+        const r = new FileReader();
+        r.onload = ev => {
+            // ছবি ছোট করে নেওয়া
+            const img = new Image();
+            img.onload = () => {
+                localPhotoMap.set(currentItemShown, compressImageToKB(img, 600));
+                renderCard();
+                showToast('✅ ছবি যোগ হয়েছে');
+            };
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+        e.target.value = '';
+    }
+
+    // 🔍 ছবিতে ক্লিক: ছবি থাকলে বড় করে দেখাবে, না থাকলে ছবি বাছাই খুলবে
+    let lbKind = null;
+    function photoTap(kind) {
+        if (!currentItemShown) return;
+        const url = kind === 'card' ? getCardPhotoUrl(currentItemShown) : getPhotoUrl(currentItemShown);
+        if (!url) {
+            document.getElementById(kind === 'card' ? 'cardPhotoPicker' : 'photoPicker').click();
+            return;
+        }
+        lbKind = kind;
+        document.getElementById('lbImg').src = url;
+        document.getElementById('lbCap').textContent = kind === 'card' ? 'কার্ডের ছবি' : 'কৃষকের ছবি';
+        document.getElementById('photoLightbox').classList.add('show');
+    }
+    function closeLightbox() {
+        document.getElementById('photoLightbox').classList.remove('show');
+        document.getElementById('lbImg').removeAttribute('src');
+    }
+    function lbChange() {
+        const kind = lbKind;
+        closeLightbox();
+        document.getElementById(kind === 'card' ? 'cardPhotoPicker' : 'photoPicker').click();
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+    // 🖼️ কার্ডের ছবি বেছে নেওয়া (শুধু এই সেশনে কার্ডে দেখাবে/সেভ হবে)
+    function pickCardPhoto(e) {
+        const f = e.target.files && e.target.files[0];
+        if (!f || !currentItemShown) return;
+        const r = new FileReader();
+        r.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                cardPhotoMap.set(currentItemShown, compressImageToKB(img, 900));
+                renderCard();
+                showToast('✅ কার্ডের ছবি যোগ হয়েছে');
+            };
+            img.src = ev.target.result;
+        };
+        r.readAsDataURL(f);
+        e.target.value = '';
+    }
+
+    function showToast(msg) {
+        let t = document.getElementById('shcToast');
+        if (!t) { t = document.createElement('div'); t.id = 'shcToast'; t.className = 'shc-toast'; document.body.appendChild(t); }
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._h);
+        t._h = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // 📸 কার্ডের ছবি সেভ/শেয়ার
+    async function saveCardImage() {
+        if (typeof html2canvas === 'undefined') { alert('ছবি তৈরির লাইব্রেরি লোড হয়নি। ইন্টারনেট সংযোগ দেখুন।'); return; }
+        const el = document.getElementById('shcVisual');
+        showToast('⏳ কার্ডের ছবি তৈরি হচ্ছে...');
+        try {
+            const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const name = (document.getElementById('resName').innerText || 'card').trim().replace(/\s+/g, '_');
+            canvas.toBlob(async blob => {
+                const file = new File([blob], `soil-card-${name}.png`, { type: 'image/png' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try { await navigator.share({ files: [file], title: 'মাটির স্বাস্থ্য সুরক্ষা কার্ড' }); return; } catch (e) { /* ডাউনলোডে ফলব্যাক */ }
+                }
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = file.name;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+                showToast('✅ কার্ডের ছবি সেভ হয়েছে');
+            }, 'image/png');
+        } catch (err) {
+            console.error(err);
+            alert('কার্ডের ছবি তৈরি করা যায়নি।');
+        }
+    }
+
+    // 📋 তথ্য কপি
+    function copyCardInfo() {
+        const g = id => document.getElementById(id).innerText;
+        const text = [
+            'মাটির স্বাস্থ্য সুরক্ষা কার্ড',
+            `নাম: ${g('resName')}`, `কার্ড: ${g('resBlock')}`, `NID: ${g('resNidVal')}`,
+            `পিতা: ${g('resFather')}`, `মাতা: ${g('resMother')}`,
+            `গ্রাম: ${g('resVillage')}`, `ওয়ার্ড: ${g('resWard')}`, `মৌজা: ${g('resMouza')}`,
+            `ইউনিয়ন: ${g('resUnion')}`, `জমি: ${g('resLand')}`, `মোবাইল: ${g('resMobile')}`
+        ].join('\n');
+        (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
+            .then(() => showToast('✅ তথ্য কপি হয়েছে'))
+            .catch(() => alert(text));
+    }
+
+</script>
+
+</body>
+</html>
