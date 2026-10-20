@@ -2190,7 +2190,10 @@
                                         val = val.replace(/\$/g, '');
                                     }
 
-                                    rowObj[h] = val;
+                                    // Firebase কী-তে . # $ [ ] / থাকলে আপলোড আটকে যায়, তাই সরিয়ে ফেলা হচ্ছে
+                                    const safeKey = String(h).replace(/[.#$\[\]\/]/g, '').trim();
+                                    if (!safeKey) return;
+                                    rowObj[safeKey] = val;
                                     if (val && val !== '' && val !== '-' && val.toLowerCase() !== 'nan') {
                                         hasData = true;
                                     }
@@ -2225,26 +2228,55 @@
             return;
         }
 
-        document.getElementById('syncStatus').innerText = "অনলাইনে ডাটা আপলোড হচ্ছে...";
-        const updates = {};
-        newlyAddedData.forEach(item => {
-            const newKey = db.ref().child('cardData').push().key;
-            updates['/cardData/' + newKey] = item;
-        });
+        const statusEl = document.getElementById('syncStatus');
+        const total = newlyAddedData.length;
+        const BATCH_SIZE = 200;        // প্রতিবারে ২০০টি করে পাঠানো হবে (বড় ডাটা একসাথে পাঠালে আটকে যায়)
+        const BATCH_TIMEOUT = 30000;   // ৩০ সেকেন্ডে সাড়া না এলে ব্যর্থ ধরা হবে
+        statusEl.style.color = '';
+        statusEl.innerText = "অনলাইনে ডাটা আপলোড হচ্ছে... (0/" + total + ")";
 
-        db.ref().update(updates).then(() => {
-            document.getElementById('syncStatus').innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
-            document.getElementById('syncStatus').style.color = '';
-            alert(`✅ ${newlyAddedData.length} টি রেকর্ড সফলভাবে অনলাইনে আপলোড হয়েছে! এখন যেকোনো ডিভাইস থেকে সবাই দেখতে পাবে।`);
+        // ইন্টারনেট/Firebase সংযোগ আছে কিনা আগে যাচাই
+        const connected = await new Promise(resolve => {
+            let done = false;
+            const ref = db.ref('.info/connected');
+            const timer = setTimeout(() => { if (!done) { done = true; ref.off('value', cb); resolve(false); } }, 10000);
+            const cb = ref.on('value', snap => {
+                if (snap.val() === true && !done) { done = true; clearTimeout(timer); ref.off('value', cb); resolve(true); }
+            });
+        });
+        if (!connected) {
+            statusEl.innerText = "❌ Firebase সার্ভারের সাথে সংযোগ হচ্ছে না";
+            statusEl.style.color = 'var(--danger-red)';
+            alert('❌ Firebase ডাটাবেজের সাথে সংযোগ হচ্ছে না!\n\nইন্টারনেট চেক করুন, VPN/Ad-blocker বন্ধ করে পেজ রিলোড দিয়ে আবার চেষ্টা করুন।');
             event.target.value = '';
-        }).catch((error) => {
-            const statusEl = document.getElementById('syncStatus');
-            statusEl.innerText = "❌ আপলোড ব্যর্থ: " + (error.message || error);
+            return;
+        }
+
+        let uploaded = 0;
+        try {
+            for (let i = 0; i < total; i += BATCH_SIZE) {
+                const chunk = newlyAddedData.slice(i, i + BATCH_SIZE);
+                const updates = {};
+                chunk.forEach(item => {
+                    const newKey = db.ref().child('cardData').push().key;
+                    updates['/cardData/' + newKey] = item;
+                });
+                await Promise.race([
+                    db.ref().update(updates),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('সার্ভার থেকে সাড়া আসেনি (timeout)')), BATCH_TIMEOUT))
+                ]);
+                uploaded += chunk.length;
+                statusEl.innerText = "অনলাইনে ডাটা আপলোড হচ্ছে... (" + uploaded + "/" + total + ")";
+            }
+            statusEl.innerText = "✅ অনলাইন লাইভ সিঙ্ক সক্রিয়";
+            alert(`✅ ${total} টি রেকর্ড সফলভাবে অনলাইনে আপলোড হয়েছে! এখন যেকোনো ডিভাইস থেকে সবাই দেখতে পাবে।`);
+        } catch (error) {
+            statusEl.innerText = "❌ আপলোড ব্যর্থ (" + uploaded + "/" + total + " সম্পন্ন): " + (error.message || error);
             statusEl.style.color = 'var(--danger-red)';
             console.error('Firebase upload error:', error);
-            alert('❌ আপলোড ব্যর্থ হয়েছে! এই কারণেই আপলোড করা ডাটা "হারিয়ে যাচ্ছে" মনে হচ্ছে।\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Console → Realtime Database → Rules-এ write বন্ধ (false) করা আছে। Rules-এ ".write": true করে দিন।');
-            event.target.value = '';
-        });
+            alert('❌ আপলোড ব্যর্থ হয়েছে! (' + uploaded + '/' + total + ' টি আপলোড হয়েছে)\n\nকারণ: ' + (error.message || error) + '\n\nসম্ভবত Firebase Rules-এ write বন্ধ আছে, অথবা ইন্টারনেট ধীর/বিচ্ছিন্ন। ঠিক করে আবার চেষ্টা করুন (আগের আপলোড হওয়া রেকর্ড ডুপ্লিকেট এড়াতে "ক্লিয়ার" করে নিতে পারেন)।');
+        }
+        event.target.value = '';
     }
 
     function switchSearchTab(tab) {
